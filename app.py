@@ -1,3 +1,4 @@
+import io
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -115,7 +116,7 @@ HEATMAP_COLORSCALE = [[0.0, "#0F4C6B"], [0.5, "#FFFFFF"], [1.0, "#C0392B"]]
 # ── Data loading ──────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner="Loading survey data…")
 def load_data(file_bytes: bytes) -> pd.DataFrame:
-    df = pd.read_excel(file_bytes, header=0)
+    df = pd.read_excel(io.BytesIO(file_bytes), header=0)
     df = df.iloc[:, :77].copy()
     df.columns = [f"Q{i+1}" for i in range(77)]
 
@@ -162,6 +163,17 @@ def spearman_matrix(df: pd.DataFrame, x_cols: list, y_cols: list) -> pd.DataFram
     all_cols = list(dict.fromkeys(x_cols + y_cols))
     corr = df[all_cols].astype(float).corr(method="spearman")
     return corr.loc[x_cols, y_cols]
+
+
+def make_writable_matrix(mat: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(mat.to_numpy(copy=True), index=mat.index, columns=mat.columns)
+
+
+def fill_diagonal_with_nan(mat: pd.DataFrame) -> pd.DataFrame:
+    data = mat.to_numpy(copy=True)
+    np.fill_diagonal(data, np.nan)
+    mat.iloc[:, :] = data
+    return mat
 
 
 def get_filter_options(df: pd.DataFrame, col: str) -> list:
@@ -452,25 +464,25 @@ with sec_a:
     with a2:
         a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
         with a2_place:
-            mat = spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS)
+            mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
             mat.index = mat.columns = WOW_THEMES
-            np.fill_diagonal(mat.values, np.nan)
+            fill_diagonal_with_nan(mat)
             render_heatmap_cards(n_total, mat)
             st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                             use_container_width=True)
         with a2_ind:
-            mat = spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS)
+            mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
             mat.index = mat.columns = WOW_THEMES
-            np.fill_diagonal(mat.values, np.nan)
+            fill_diagonal_with_nan(mat)
             render_heatmap_cards(n_total, mat)
             st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                             use_container_width=True)
 
     # ── A3: Outcomes × Outcomes ───────────────────────────
     with a3:
-        mat = spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS)
+        mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
         mat.index = mat.columns = OUTCOME_LABELS
-        np.fill_diagonal(mat.values, np.nan)
+        fill_diagonal_with_nan(mat)
         render_heatmap_cards(n_total, mat)
         st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
                         use_container_width=True)
@@ -568,16 +580,16 @@ with sec_b:
         else:
             b2_place, b2_ind = st.tabs(["Place (P)", "Individual (I)"])
             with b2_place:
-                mat = spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS)
+                mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
                 mat.index = mat.columns = WOW_THEMES
-                np.fill_diagonal(mat.values, np.nan)
+                fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_dir, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                                 use_container_width=True)
             with b2_ind:
-                mat = spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS)
+                mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
                 mat.index = mat.columns = WOW_THEMES
-                np.fill_diagonal(mat.values, np.nan)
+                fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_dir, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                                 use_container_width=True)
@@ -587,9 +599,9 @@ with sec_b:
         if n_dir < 3:
             st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
         else:
-            mat = spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS)
+            mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
             mat.index = mat.columns = OUTCOME_LABELS
-            np.fill_diagonal(mat.values, np.nan)
+            fill_diagonal_with_nan(mat)
             render_heatmap_cards(n_dir, mat)
             st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
                             use_container_width=True)
