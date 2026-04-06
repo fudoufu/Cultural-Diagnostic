@@ -1,0 +1,16 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+
+# Survey exports often contain personal data — keep out of Git
+*.xlsx
+*.xls
+
+# Streamlit secrets (API keys, passwords)
+.streamlit/secrets.toml
