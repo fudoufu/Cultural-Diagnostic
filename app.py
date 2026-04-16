@@ -586,87 +586,96 @@ with sec_b:
     st.caption(f"{n_dir:,} respondents in **{selected_dir}**")
     st.markdown("---")
 
-    b1, b2, b3, b4, b5 = st.tabs([
-        "B1 · WoW × Outcomes",
-        "B2 · WoW × WoW",
-        "B3 · Outcomes × Outcomes",
-        "B4 · Ways of Working",
-        "B5 · Sentiment Outcomes",
-    ])
+    b_corr_group, b_desc_group = st.tabs(["Correlation Analysis", "Descriptive Analysis"])
 
-    # ── B1 ────────────────────────────────────────────────
-    with b1:
-        if n_dir < 3:
-            st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-        else:
-            b1_place, b1_ind = st.tabs(["Place (P)", "Individual (I)"])
-            with b1_place:
-                mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
-                mat.index   = WOW_THEMES
-                mat.columns = OUTCOME_LABELS
-                render_heatmap_cards(n_dir, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                use_container_width=True)
-            with b1_ind:
-                mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
-                mat.index   = WOW_THEMES
-                mat.columns = OUTCOME_LABELS
-                render_heatmap_cards(n_dir, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                use_container_width=True)
+    # ── Correlation Analysis group ────────────────────────
+    with b_corr_group:
+        b1, b2, b3 = st.tabs([
+            "B1 · WoW × Outcomes",
+            "B2 · WoW × WoW",
+            "B3 · Outcomes × Outcomes",
+        ])
 
-    # ── B2 ────────────────────────────────────────────────
-    with b2:
-        if n_dir < 3:
-            st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-        else:
-            b2_place, b2_ind = st.tabs(["Place (P)", "Individual (I)"])
-            with b2_place:
-                mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
-                mat.index = mat.columns = WOW_THEMES
+        # ── B1 ────────────────────────────────────────────────
+        with b1:
+            if n_dir < 3:
+                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
+            else:
+                b1_place, b1_ind = st.tabs(["Place (P)", "Individual (I)"])
+                with b1_place:
+                    mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
+                    mat.index   = WOW_THEMES
+                    mat.columns = OUTCOME_LABELS
+                    render_heatmap_cards(n_dir, mat)
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                                    use_container_width=True)
+                with b1_ind:
+                    mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
+                    mat.index   = WOW_THEMES
+                    mat.columns = OUTCOME_LABELS
+                    render_heatmap_cards(n_dir, mat)
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                                    use_container_width=True)
+
+        # ── B2 ────────────────────────────────────────────────
+        with b2:
+            if n_dir < 3:
+                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
+            else:
+                b2_place, b2_ind = st.tabs(["Place (P)", "Individual (I)"])
+                with b2_place:
+                    mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
+                    mat.index = mat.columns = WOW_THEMES
+                    fill_diagonal_with_nan(mat)
+                    render_heatmap_cards(n_dir, mat)
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                    use_container_width=True)
+                with b2_ind:
+                    mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
+                    mat.index = mat.columns = WOW_THEMES
+                    fill_diagonal_with_nan(mat)
+                    render_heatmap_cards(n_dir, mat)
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                    use_container_width=True)
+
+        # ── B3 ────────────────────────────────────────────────
+        with b3:
+            if n_dir < 3:
+                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
+            else:
+                mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
+                mat.index = mat.columns = OUTCOME_LABELS
                 fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_dir, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                use_container_width=True)
-            with b2_ind:
-                mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
-                mat.index = mat.columns = WOW_THEMES
-                fill_diagonal_with_nan(mat)
-                render_heatmap_cards(n_dir, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
                                 use_container_width=True)
 
-    # ── B3 ────────────────────────────────────────────────
-    with b3:
-        if n_dir < 3:
-            st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-        else:
-            mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
-            mat.index = mat.columns = OUTCOME_LABELS
-            fill_diagonal_with_nan(mat)
-            render_heatmap_cards(n_dir, mat)
-            st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                            use_container_width=True)
+    # ── Descriptive Analysis group ────────────────────────
+    with b_desc_group:
+        b4, b5 = st.tabs([
+            "B4 · Ways of Working",
+            "B5 · Sentiment Outcomes",
+        ])
 
-    # ── B4 ────────────────────────────────────────────────
-    with b4:
-        if not service_areas:
-            st.info("No service area breakdown available for this directorate.")
-        else:
-            tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
-            wow_table_cards(n_dir, tdf)
-            st.markdown(f"**{selected_dir}** — Ways of Working by Service Area")
-            st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                        "**P** = Place average &nbsp;|&nbsp; "
-                        "**Δ** = I − P")
-            st.dataframe(styler, use_container_width=True, height=720)
+        # ── B4 ────────────────────────────────────────────────
+        with b4:
+            if not service_areas:
+                st.info("No service area breakdown available for this directorate.")
+            else:
+                tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
+                wow_table_cards(n_dir, tdf)
+                st.markdown(f"**{selected_dir}** — Ways of Working by Service Area")
+                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                            "**P** = Place average &nbsp;|&nbsp; "
+                            "**Δ** = I − P")
+                st.dataframe(styler, use_container_width=True, height=720)
 
-    # ── B5 ────────────────────────────────────────────────
-    with b5:
-        if not service_areas:
-            st.info("No service area breakdown available for this directorate.")
-        else:
-            tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
-            outcome_table_cards(n_dir, tdf)
-            st.markdown(f"**{selected_dir}** — Sentiment Outcomes by Service Area")
-            st.dataframe(styler, use_container_width=True, height=580)
+        # ── B5 ────────────────────────────────────────────────
+        with b5:
+            if not service_areas:
+                st.info("No service area breakdown available for this directorate.")
+            else:
+                tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
+                outcome_table_cards(n_dir, tdf)
+                st.markdown(f"**{selected_dir}** — Sentiment Outcomes by Service Area")
+                st.dataframe(styler, use_container_width=True, height=580)
