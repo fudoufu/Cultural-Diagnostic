@@ -32,6 +32,24 @@ html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sa
     color: #FFFFFF !important;
     border-color: #0F4C6B !important;
 }
+/* Level 2 tabs (Correlation / Descriptive) */
+.stTabs .stTabs [aria-selected="true"] {
+    background-color: #2E7096 !important;
+    border-color: #2E7096 !important;
+    color: #FFFFFF !important;
+}
+/* Level 3 tabs (A1/A2/A3 etc.) */
+.stTabs .stTabs .stTabs [aria-selected="true"] {
+    background-color: #5A9BB5 !important;
+    border-color: #5A9BB5 !important;
+    color: #FFFFFF !important;
+}
+/* Level 4 tabs (Place / Individual) */
+.stTabs .stTabs .stTabs .stTabs [aria-selected="true"] {
+    background-color: #8DC0D4 !important;
+    border-color: #8DC0D4 !important;
+    color: #1A2B3C !important;
+}
 .metric-card {
     background: #FFFFFF;
     border: 1px solid #D6E0EA;
