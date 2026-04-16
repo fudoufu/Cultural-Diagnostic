@@ -15,7 +15,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sans-serif !important; }
-.main, .block-container { background-color: #F7F9FC; }
+.stApp, [data-testid="stAppViewContainer"], .main, .block-container { background-color: #F7F9FC; }
 .block-container { padding-top: 4.25rem; padding-bottom: 2rem; }
 .stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent; }
 .stTabs [data-baseweb="tab"] {
@@ -56,6 +56,15 @@ div[data-testid="stRadio"] label,
 div[data-testid="stRadio"] label p {
     color: #1A2B3C !important;
     font-weight: 500;
+}
+.landing-hero {
+    min-height: 62vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #1A2B3C;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -388,7 +397,7 @@ with st.sidebar:
 if uploaded is None:
     st.markdown(
         f"""
-        <div style="text-align:center;padding:36px 40px 12px;color:#1A2B3C">
+        <div class="landing-hero" style="padding:24px 40px 12px;">
             <div style="font-size:52px;margin-bottom:16px">📊</div>
             <h2 style="color:{PRIMARY};margin-bottom:8px">Our Culture Discovery - survey analysis tool</h2>
             <p style="font-size:15px;color:#5A7080">
