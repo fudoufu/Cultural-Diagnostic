@@ -569,7 +569,11 @@ with sec_b:
         st.warning("No directorate data found in this file.")
         st.stop()
 
-    st.markdown("##### Select Directorate")
+    st.markdown(
+        '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+        'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
+        unsafe_allow_html=True,
+    )
     selected_dir = st.radio(
         "Directorate",
         directorates,
