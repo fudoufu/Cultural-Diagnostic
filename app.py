@@ -52,6 +52,17 @@ html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sa
     font-weight: 600;
     margin-bottom: 12px;
 }
+.section-pill-alt {
+    display: inline-block;
+    background: #00A8A8;
+    color: white;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    margin-top: 18px;
+}
 div[data-testid="stRadio"] label,
 div[data-testid="stRadio"] label p {
     color: #1A2B3C !important;
@@ -455,13 +466,11 @@ sec_a, sec_b = st.tabs([
 # SECTION A
 # ═══════════════════════════════════════════════════════════════════════════════════
 with sec_a:
-    a1, a2, a3, a4, a5, a6 = st.tabs([
+    st.markdown('<span class="section-pill">Correlation Analysis</span>', unsafe_allow_html=True)
+    a1, a2, a3 = st.tabs([
         "A1 · WoW × Outcomes",
         "A2 · WoW × WoW",
         "A3 · Outcomes × Outcomes",
-        "A4 · Ways of Working",
-        "A5 · Sentiment Outcomes",
-        "A6 · By Org Level",
     ])
 
     # ── A1: Ways of Working × Outcomes ───────────────────
@@ -508,6 +517,13 @@ with sec_a:
         render_heatmap_cards(n_total, mat)
         st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
                         use_container_width=True)
+
+    st.markdown('<span class="section-pill-alt">Descriptive Analysis</span>', unsafe_allow_html=True)
+    a4, a5, a6 = st.tabs([
+        "A4 · Ways of Working",
+        "A5 · Sentiment Outcomes",
+        "A6 · By Org Level",
+    ])
 
     # ── A4: Ways of Working descriptive table ─────────────
     with a4:
