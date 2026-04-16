@@ -388,9 +388,9 @@ with st.sidebar:
 if uploaded is None:
     st.markdown(
         f"""
-        <div style="text-align:center;padding:90px 40px;color:#1A2B3C">
+        <div style="text-align:center;padding:36px 40px 12px;color:#1A2B3C">
             <div style="font-size:52px;margin-bottom:16px">📊</div>
-            <h2 style="color:{PRIMARY};margin-bottom:8px">Cultural Diagnostic Dashboard</h2>
+            <h2 style="color:{PRIMARY};margin-bottom:8px">Our Culture Discovery - survey analysis tool</h2>
             <p style="font-size:15px;color:#5A7080">
                 Upload a survey export using the panel on the left to get started.
             </p>
