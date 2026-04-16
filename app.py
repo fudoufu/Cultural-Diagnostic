@@ -228,38 +228,51 @@ def render_heatmap_cards(n: int, matrix: pd.DataFrame):
                     f'<p class="card-value">n = {n:,}</p></div>', unsafe_allow_html=True)
     if flat.empty:
         return
-    max_idx, min_idx = flat.idxmax(), flat.idxmin()
+    top3_pos = flat.nlargest(3)
+    top3_neg = flat.nsmallest(3)
+    pos_html = "".join(
+        f'<p class="card-sub">{idx[0]} × {idx[1]}</p><p class="card-value">r = {val:.3f}</p>'
+        for idx, val in top3_pos.items()
+    )
+    neg_html = "".join(
+        f'<p class="card-sub">{idx[0]} × {idx[1]}</p><p class="card-value">r = {val:.3f}</p>'
+        for idx, val in top3_neg.items()
+    )
     with cols[1]:
         st.markdown(
-            f'<div class="metric-card"><p class="card-label">Strongest positive correlation</p>'
-            f'<p class="card-sub">{max_idx[0]} × {max_idx[1]}</p>'
-            f'<p class="card-value">r = {flat.max():.3f}</p></div>',
+            f'<div class="metric-card"><p class="card-label">Strongest positive correlations</p>'
+            f'{pos_html}</div>',
             unsafe_allow_html=True)
     with cols[2]:
         st.markdown(
-            f'<div class="metric-card"><p class="card-label">Strongest negative correlation</p>'
-            f'<p class="card-sub">{min_idx[0]} × {min_idx[1]}</p>'
-            f'<p class="card-value">r = {flat.min():.3f}</p></div>',
+            f'<div class="metric-card"><p class="card-label">Strongest negative correlations</p>'
+            f'{neg_html}</div>',
             unsafe_allow_html=True)
 
 
-def render_summary_cards(n: int, high_label: str, high_val: str,
-                         low_label: str, low_val: str):
+def render_summary_cards(n: int, top3_high: list, top3_low: list):
+    """top3_high / top3_low are lists of (label, value_str) tuples."""
     cols = st.columns(3)
     with cols[0]:
         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                     f'<p class="card-value">n = {n:,}</p></div>', unsafe_allow_html=True)
+    high_html = "".join(
+        f'<p class="card-sub">{lbl}</p><p class="card-value">{val}</p>'
+        for lbl, val in top3_high
+    )
+    low_html = "".join(
+        f'<p class="card-sub">{lbl}</p><p class="card-value">{val}</p>'
+        for lbl, val in top3_low
+    )
     with cols[1]:
         st.markdown(
             f'<div class="metric-card"><p class="card-label">Highest scoring</p>'
-            f'<p class="card-sub">{high_label}</p>'
-            f'<p class="card-value">{high_val}</p></div>',
+            f'{high_html}</div>',
             unsafe_allow_html=True)
     with cols[2]:
         st.markdown(
             f'<div class="metric-card"><p class="card-label">Lowest scoring</p>'
-            f'<p class="card-sub">{low_label}</p>'
-            f'<p class="card-value">{low_val}</p></div>',
+            f'{low_html}</div>',
             unsafe_allow_html=True)
 
 
@@ -364,21 +377,21 @@ def wow_table_cards(n, tdf):
         i.rename(index=lambda x: f"I · {x}"),
     ]).dropna()
     if combined.empty:
-        render_summary_cards(n, "—", "—", "—", "—")
+        render_summary_cards(n, [], [])
         return
-    render_summary_cards(n,
-                         combined.idxmax(), f"{combined.max():.2f}",
-                         combined.idxmin(), f"{combined.min():.2f}")
+    top3_high = [(lbl, f"{val:.2f}") for lbl, val in combined.nlargest(3).items()]
+    top3_low  = [(lbl, f"{val:.2f}") for lbl, val in combined.nsmallest(3).items()]
+    render_summary_cards(n, top3_high, top3_low)
 
 
 def outcome_table_cards(n, tdf):
     ov = pd.to_numeric(tdf["Overall"], errors="coerce").dropna()
     if ov.empty:
-        render_summary_cards(n, "—", "—", "—", "—")
+        render_summary_cards(n, [], [])
         return
-    render_summary_cards(n,
-                         ov.idxmax(), f"{ov.max():.2f}",
-                         ov.idxmin(), f"{ov.min():.2f}")
+    top3_high = [(lbl, f"{val:.2f}") for lbl, val in ov.nlargest(3).items()]
+    top3_low  = [(lbl, f"{val:.2f}") for lbl, val in ov.nsmallest(3).items()]
+    render_summary_cards(n, top3_high, top3_low)
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────────
