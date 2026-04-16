@@ -588,7 +588,6 @@ with sec_b:
     service_areas = get_filter_options(dir_df, "service_area")
 
     st.caption(f"{n_dir:,} respondents in **{selected_dir}**")
-    st.markdown("---")
 
     b_corr_group, b_desc_group = st.tabs(["Correlation Analysis", "Descriptive Analysis"])
 
