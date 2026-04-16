@@ -72,16 +72,16 @@ div[data-testid="stRadio"] label p {
 # ── Constants ─────────────────────────────────────────────────────────────────────
 WOW_THEMES = [
     "Collective Responsibility", "Individual Accountability",
-    "Hierarchical Control", "Empowered Decision-Making",
-    "Prioritise People", "Protect Performance",
+    "Status Orientation", "Autonomy over Decisions",
+    "Prioritise People's Well-Being", "Prioritise Results",
     "Challenge Decisions", "Preserve Cohesion",
     "Follow Procedures", "Adapt to Situation",
-    "Consolidate Existing Processes", "Experiment & Innovate",
-    "Deliver Immediate Results", "Invest in Long-Term Changes",
+    "Stick to Current Ways", "Experiment & Innovate",
+    "Prioritise Immediate Results", "Invest in Long-Term Changes",
     "Proactive Learning", "Reactive Learning",
     "Target-Driven Interactions", "Relationship-Led Working",
     "Plan-Based Working", "Agile Working",
-    "Value Individual Performance", "Value Individual Status",
+    "Recognise Contributions", "Value Individual Status",
 ]
 
 OUTCOME_LABELS = [
