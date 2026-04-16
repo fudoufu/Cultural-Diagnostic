@@ -16,7 +16,7 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sans-serif !important; }
 .main, .block-container { background-color: #F7F9FC; }
-.block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
+.block-container { padding-top: 4.25rem; padding-bottom: 2rem; }
 .stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent; }
 .stTabs [data-baseweb="tab"] {
     background-color: #FFFFFF;
