@@ -466,95 +466,99 @@ sec_a, sec_b = st.tabs([
 # SECTION A
 # ═══════════════════════════════════════════════════════════════════════════════════
 with sec_a:
-    st.markdown('<span class="section-pill">Correlation Analysis</span>', unsafe_allow_html=True)
-    a1, a2, a3 = st.tabs([
-        "A1 · WoW × Outcomes",
-        "A2 · WoW × WoW",
-        "A3 · Outcomes × Outcomes",
-    ])
+    corr_group, desc_group = st.tabs(["Correlation Analysis", "Descriptive Analysis"])
 
-    # ── A1: Ways of Working × Outcomes ───────────────────
-    with a1:
-        a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
-        with a1_place:
-            mat = spearman_matrix(filtered, WOW_PLACE_COLS, OUTCOME_COLS)
-            mat.index   = WOW_THEMES
-            mat.columns = OUTCOME_LABELS
-            render_heatmap_cards(n_total, mat)
-            st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                            use_container_width=True)
-        with a1_ind:
-            mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
-            mat.index   = WOW_THEMES
-            mat.columns = OUTCOME_LABELS
-            render_heatmap_cards(n_total, mat)
-            st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                            use_container_width=True)
+    # ── Correlation Analysis group ────────────────────────
+    with corr_group:
+        a1, a2, a3 = st.tabs([
+            "A1 · WoW × Outcomes",
+            "A2 · WoW × WoW",
+            "A3 · Outcomes × Outcomes",
+        ])
 
-    # ── A2: Ways of Working × Ways of Working ────────────
-    with a2:
-        a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
-        with a2_place:
-            mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
-            mat.index = mat.columns = WOW_THEMES
+        # ── A1: Ways of Working × Outcomes ───────────────────
+        with a1:
+            a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
+            with a1_place:
+                mat = spearman_matrix(filtered, WOW_PLACE_COLS, OUTCOME_COLS)
+                mat.index   = WOW_THEMES
+                mat.columns = OUTCOME_LABELS
+                render_heatmap_cards(n_total, mat)
+                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                                use_container_width=True)
+            with a1_ind:
+                mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
+                mat.index   = WOW_THEMES
+                mat.columns = OUTCOME_LABELS
+                render_heatmap_cards(n_total, mat)
+                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                                use_container_width=True)
+
+        # ── A2: Ways of Working × Ways of Working ────────────
+        with a2:
+            a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
+            with a2_place:
+                mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
+                mat.index = mat.columns = WOW_THEMES
+                fill_diagonal_with_nan(mat)
+                render_heatmap_cards(n_total, mat)
+                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                use_container_width=True)
+            with a2_ind:
+                mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
+                mat.index = mat.columns = WOW_THEMES
+                fill_diagonal_with_nan(mat)
+                render_heatmap_cards(n_total, mat)
+                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                use_container_width=True)
+
+        # ── A3: Outcomes × Outcomes ───────────────────────────
+        with a3:
+            mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
+            mat.index = mat.columns = OUTCOME_LABELS
             fill_diagonal_with_nan(mat)
             render_heatmap_cards(n_total, mat)
-            st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                            use_container_width=True)
-        with a2_ind:
-            mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
-            mat.index = mat.columns = WOW_THEMES
-            fill_diagonal_with_nan(mat)
-            render_heatmap_cards(n_total, mat)
-            st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+            st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
                             use_container_width=True)
 
-    # ── A3: Outcomes × Outcomes ───────────────────────────
-    with a3:
-        mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
-        mat.index = mat.columns = OUTCOME_LABELS
-        fill_diagonal_with_nan(mat)
-        render_heatmap_cards(n_total, mat)
-        st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                        use_container_width=True)
+    # ── Descriptive Analysis group ────────────────────────
+    with desc_group:
+        a4, a5, a6 = st.tabs([
+            "A4 · Ways of Working",
+            "A5 · Sentiment Outcomes",
+            "A6 · By Org Level",
+        ])
 
-    st.markdown('<span class="section-pill-alt">Descriptive Analysis</span>', unsafe_allow_html=True)
-    a4, a5, a6 = st.tabs([
-        "A4 · Ways of Working",
-        "A5 · Sentiment Outcomes",
-        "A6 · By Org Level",
-    ])
+        # ── A4: Ways of Working descriptive table ─────────────
+        with a4:
+            tdf, styler = build_wow_table(filtered, "Q1", directorates)
+            wow_table_cards(n_total, tdf)
+            st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                        "**P** = Place average &nbsp;|&nbsp; "
+                        "**Δ** = I − P")
+            st.dataframe(styler, use_container_width=True, height=720)
 
-    # ── A4: Ways of Working descriptive table ─────────────
-    with a4:
-        tdf, styler = build_wow_table(filtered, "Q1", directorates)
-        wow_table_cards(n_total, tdf)
-        st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                    "**P** = Place average &nbsp;|&nbsp; "
-                    "**Δ** = I − P")
-        st.dataframe(styler, use_container_width=True, height=720)
+        # ── A5: Sentiment Outcomes descriptive table ──────────
+        with a5:
+            tdf, styler = build_outcome_table(filtered, "Q1", directorates)
+            outcome_table_cards(n_total, tdf)
+            st.dataframe(styler, use_container_width=True, height=580)
 
-    # ── A5: Sentiment Outcomes descriptive table ──────────
-    with a5:
-        tdf, styler = build_outcome_table(filtered, "Q1", directorates)
-        outcome_table_cards(n_total, tdf)
-        st.dataframe(styler, use_container_width=True, height=580)
+        # ── A6: By Q9 Organisational Level ───────────────────
+        with a6:
+            st.markdown("##### Ways of Working by Organisational Level")
+            tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
+            wow_table_cards(n_total, tdf_wow)
+            st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                        "**P** = Place average &nbsp;|&nbsp; "
+                        "**Δ** = I − P")
+            st.dataframe(styler_wow, use_container_width=True, height=720)
 
-    # ── A6: By Q9 Organisational Level ───────────────────
-    with a6:
-        st.markdown("##### Ways of Working by Organisational Level")
-        tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
-        wow_table_cards(n_total, tdf_wow)
-        st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                    "**P** = Place average &nbsp;|&nbsp; "
-                    "**Δ** = I − P")
-        st.dataframe(styler_wow, use_container_width=True, height=720)
-
-        st.markdown("---")
-        st.markdown("##### Sentiment Outcomes by Organisational Level")
-        tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
-        outcome_table_cards(n_total, tdf_out)
-        st.dataframe(styler_out, use_container_width=True, height=580)
+            st.markdown("---")
+            st.markdown("##### Sentiment Outcomes by Organisational Level")
+            tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
+            outcome_table_cards(n_total, tdf_out)
+            st.dataframe(styler_out, use_container_width=True, height=580)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════
