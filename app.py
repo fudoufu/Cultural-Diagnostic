@@ -251,6 +251,15 @@ def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Fig
 
 def render_heatmap_cards(n: int, matrix: pd.DataFrame):
     flat = matrix.stack().dropna()
+    # Deduplicate symmetric pairs: (A, B) and (B, A) are the same correlation
+    seen: set = set()
+    unique: dict = {}
+    for idx, val in flat.items():
+        key = frozenset(idx)
+        if key not in seen:
+            seen.add(key)
+            unique[idx] = val
+    flat = pd.Series(unique)
     cols = st.columns(3)
     with cols[0]:
         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
