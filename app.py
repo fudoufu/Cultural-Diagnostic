@@ -77,7 +77,7 @@ WOW_THEMES = [
     "Challenge Decisions", "Preserve Cohesion",
     "Follow Procedures", "Adapt to Situation",
     "Stick to Current Ways", "Experiment & Innovate",
-    "Prioritise Immediate Results", "Invest in Long-Term Changes",
+    "Prioritise Immediate Results", "Consider the Long Term",
     "Proactive Learning", "Reactive Learning",
     "Target-Driven Interactions", "Relationship-Led Working",
     "Plan-Based Working", "Agile Working",
