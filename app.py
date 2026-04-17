@@ -641,6 +641,11 @@ with sec_a:
                 chart_dir = st.radio("Select group", dir_options, horizontal=True,
                                      label_visibility="collapsed", key="a4_dir_chart")
                 chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
+                n_col, _ = st.columns([1, 5])
+                with n_col:
+                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                unsafe_allow_html=True)
                 st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True)
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
@@ -794,6 +799,11 @@ with sec_b:
                     chart_sa = st.radio("Select service area", sa_options, horizontal=True,
                                         label_visibility="collapsed", key="b4_sa_chart")
                     chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
+                    n_col, _ = st.columns([1, 5])
+                    with n_col:
+                        st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                    f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                    unsafe_allow_html=True)
                     st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True)
 
         # ── B5 ────────────────────────────────────────────────
