@@ -257,9 +257,8 @@ def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Fig
     return fig
 
 
-def make_wow_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) -> go.Figure:
-    """Grouped bar chart: Place, Individual, Δ (P−I) per WoW theme.
-    If overall_df is provided, adds lighter overall P and I bars for comparison."""
+def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
+    """Grouped bar chart: Place, Individual, Δ (P−I) per WoW theme."""
     p_vals = [df[col].mean() for col in WOW_PLACE_COLS]
     i_vals = [df[col].mean() for col in WOW_IND_COLS]
     delta_vals = [
@@ -275,25 +274,11 @@ def make_wow_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) -> go.
         marker_color=PRIMARY,
         hovertemplate="%{x}<br>Place: %{y:.2f}<extra></extra>",
     ))
-    if overall_df is not None:
-        fig.add_trace(go.Bar(
-            name="Place (P) — Overall", x=WOW_THEMES,
-            y=[overall_df[col].mean() for col in WOW_PLACE_COLS],
-            marker_color="#6BA3BA",
-            hovertemplate="%{x}<br>Place (overall): %{y:.2f}<extra></extra>",
-        ))
     fig.add_trace(go.Bar(
         name="Individual (I)", x=WOW_THEMES, y=i_vals,
         marker_color="#5A9BB5",
         hovertemplate="%{x}<br>Individual: %{y:.2f}<extra></extra>",
     ))
-    if overall_df is not None:
-        fig.add_trace(go.Bar(
-            name="Individual (I) — Overall", x=WOW_THEMES,
-            y=[overall_df[col].mean() for col in WOW_IND_COLS],
-            marker_color="#A8CDD9",
-            hovertemplate="%{x}<br>Individual (overall): %{y:.2f}<extra></extra>",
-        ))
     fig.add_trace(go.Bar(
         name="Δ — Place higher", x=WOW_THEMES, y=pos_delta,
         marker_color=GREEN,
@@ -326,15 +311,27 @@ def make_wow_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) -> go.
     return fig
 
 
-def make_outcome_bar_chart(df: pd.DataFrame) -> go.Figure:
-    """Bar chart: average score for each employee experience outcome."""
+def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) -> go.Figure:
+    """Bar chart: average score for each employee experience outcome.
+    If overall_df is provided, adds a lighter overall bar for comparison."""
     vals = [df[col].mean() for col in OUTCOME_COLS]
-    fig = go.Figure(go.Bar(
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        name="Selected group",
         x=OUTCOME_LABELS, y=vals,
         marker_color=PRIMARY,
         hovertemplate="%{x}<br>Score: %{y:.2f}<extra></extra>",
     ))
+    if overall_df is not None:
+        fig.add_trace(go.Bar(
+            name="Overall",
+            x=OUTCOME_LABELS,
+            y=[overall_df[col].mean() for col in OUTCOME_COLS],
+            marker_color="#6BA3BA",
+            hovertemplate="%{x}<br>Overall: %{y:.2f}<extra></extra>",
+        ))
     fig.update_layout(
+        barmode="group",
         font=dict(family="Inter", color="#1A2B3C"),
         paper_bgcolor="#F7F9FC",
         plot_bgcolor="#F7F9FC",
@@ -346,7 +343,10 @@ def make_outcome_bar_chart(df: pd.DataFrame) -> go.Figure:
             tickfont=dict(size=11, color="#1A2B3C"),
             gridcolor="#E8EEF2",
         ),
-        legend=dict(font=dict(color="#1A2B3C", size=12)),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            font=dict(color="#1A2B3C", size=12),
+        ),
         height=480,
     )
     return fig
@@ -684,14 +684,12 @@ with sec_a:
                 chart_dir = st.radio("Select group", dir_options, horizontal=True,
                                      label_visibility="collapsed", key="a4_dir_chart")
                 chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
-                overall_df = None if chart_dir == "Overall" else filtered
                 n_col, _ = st.columns([1, 5])
                 with n_col:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True,
-                                key=f"a4_bar_{chart_dir}")
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a4_bar")
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
@@ -710,12 +708,14 @@ with sec_a:
                 chart_dir = st.radio("Select group", dir_options, horizontal=True,
                                      label_visibility="collapsed", key="a5_dir_chart")
                 chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
+                overall_df = None if chart_dir == "Overall" else filtered
                 n_col, _ = st.columns([1, 5])
                 with n_col:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="a5_bar")
+                st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
+                                key=f"a5_bar_{chart_dir}")
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
@@ -746,8 +746,7 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, filtered), use_container_width=True,
-                                key=f"a6_wow_bar_{sel_q9_wow}")
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a6_wow_bar")
 
             st.markdown("---")
             st.markdown("#### Employee Experience — Average Scores by Organisational Level")
@@ -899,14 +898,12 @@ with sec_b:
                     chart_sa = st.radio("Select service area", sa_options, horizontal=True,
                                         label_visibility="collapsed", key="b4_sa_chart")
                     chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
-                    overall_df = None if chart_sa == "Overall" else dir_df
                     n_col, _ = st.columns([1, 5])
                     with n_col:
                         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
-                    st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True,
-                                    key=f"b4_bar_{chart_sa}")
+                    st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
@@ -928,9 +925,11 @@ with sec_b:
                     chart_sa = st.radio("Select service area", sa_options, horizontal=True,
                                         label_visibility="collapsed", key="b5_sa_chart")
                     chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
+                    overall_df = None if chart_sa == "Overall" else dir_df
                     n_col, _ = st.columns([1, 5])
                     with n_col:
                         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
-                    st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="b5_bar")
+                    st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
+                                    key=f"b5_bar_{chart_sa}")
