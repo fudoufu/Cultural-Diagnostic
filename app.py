@@ -255,6 +255,57 @@ def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Fig
     return fig
 
 
+def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
+    """Grouped bar chart: Place, Individual, Δ (P−I) per WoW theme."""
+    p_vals = [df[col].mean() for col in WOW_PLACE_COLS]
+    i_vals = [df[col].mean() for col in WOW_IND_COLS]
+    delta_vals = [
+        p - i if not (np.isnan(p) or np.isnan(i)) else np.nan
+        for p, i in zip(p_vals, i_vals)
+    ]
+    pos_delta = [d if not np.isnan(d) and d >= 0 else np.nan for d in delta_vals]
+    neg_delta = [d if not np.isnan(d) and d <  0 else np.nan for d in delta_vals]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        name="Place (P)", x=WOW_THEMES, y=p_vals,
+        marker_color=PRIMARY,
+        hovertemplate="%{x}<br>Place: %{y:.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Bar(
+        name="Individual (I)", x=WOW_THEMES, y=i_vals,
+        marker_color="#5A9BB5",
+        hovertemplate="%{x}<br>Individual: %{y:.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Bar(
+        name="Δ — Place higher", x=WOW_THEMES, y=pos_delta,
+        marker_color=GREEN,
+        hovertemplate="%{x}<br>Δ (P−I): %{y:.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Bar(
+        name="Δ — Individual higher", x=WOW_THEMES, y=neg_delta,
+        marker_color=RED,
+        hovertemplate="%{x}<br>Δ (P−I): %{y:.2f}<extra></extra>",
+    ))
+    fig.update_layout(
+        barmode="group",
+        font=dict(family="Inter", color="#1A2B3C"),
+        paper_bgcolor="#F7F9FC",
+        plot_bgcolor="#F7F9FC",
+        margin=dict(l=10, r=10, t=10, b=180),
+        xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+        yaxis=dict(
+            title="Average Score",
+            tickfont=dict(size=11),
+            zeroline=True, zerolinecolor="#9EB5C2", zerolinewidth=1.5,
+            gridcolor="#E8EEF2",
+        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        height=560,
+    )
+    return fig
+
+
 def render_heatmap_cards(n: int, matrix: pd.DataFrame):
     flat = matrix.stack().dropna()
     # Deduplicate symmetric pairs: (A, B) and (B, A) are the same correlation
@@ -570,12 +621,24 @@ with sec_a:
         # ── A4: Ways of Working descriptive table ─────────────
         with a4:
             st.markdown("#### Ways of Working — Average Scores by Directorate")
-            tdf, styler = build_wow_table(filtered, "Q1", directorates)
-            wow_table_cards(n_total, tdf)
-            st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                        "**P** = Place average &nbsp;|&nbsp; "
-                        "**Δ** = I − P")
-            st.dataframe(styler, use_container_width=True, height=720)
+            a4_table, a4_chart = st.tabs(["Table", "Bar Chart"])
+            with a4_table:
+                tdf, styler = build_wow_table(filtered, "Q1", directorates)
+                wow_table_cards(n_total, tdf)
+                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                            "**P** = Place average &nbsp;|&nbsp; "
+                            "**Δ** = I − P")
+                st.dataframe(styler, use_container_width=True, height=720)
+            with a4_chart:
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select group</p>', unsafe_allow_html=True)
+                dir_options = ["Overall"] + list(directorates)
+                chart_dir = st.radio("Select group", dir_options, horizontal=True,
+                                     label_visibility="collapsed", key="a4_dir_chart")
+                chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True)
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
@@ -711,12 +774,16 @@ with sec_b:
                 st.info("No service area breakdown available for this directorate.")
             else:
                 st.markdown(f"#### Ways of Working — Average Scores by Service Area ({selected_dir})")
-                tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
-                wow_table_cards(n_dir, tdf)
-                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                            "**P** = Place average &nbsp;|&nbsp; "
-                            "**Δ** = I − P")
-                st.dataframe(styler, use_container_width=True, height=720)
+                b4_table, b4_chart = st.tabs(["Table", "Bar Chart"])
+                with b4_table:
+                    tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
+                    wow_table_cards(n_dir, tdf)
+                    st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                                "**P** = Place average &nbsp;|&nbsp; "
+                                "**Δ** = I − P")
+                    st.dataframe(styler, use_container_width=True, height=720)
+                with b4_chart:
+                    st.plotly_chart(make_wow_bar_chart(dir_df), use_container_width=True)
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
