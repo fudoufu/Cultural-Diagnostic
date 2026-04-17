@@ -507,6 +507,7 @@ with sec_a:
         with a1:
             a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
             with a1_place:
+                st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
                 mat = spearman_matrix(filtered, WOW_PLACE_COLS, OUTCOME_COLS)
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
@@ -514,6 +515,7 @@ with sec_a:
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
                                 use_container_width=True)
             with a1_ind:
+                st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                 mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
@@ -525,6 +527,7 @@ with sec_a:
         with a2:
             a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
             with a2_place:
+                st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
                 mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
                 mat.index = mat.columns = WOW_THEMES
                 fill_diagonal_with_nan(mat)
@@ -532,6 +535,7 @@ with sec_a:
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                                 use_container_width=True)
             with a2_ind:
+                st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
                 mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
                 mat.index = mat.columns = WOW_THEMES
                 fill_diagonal_with_nan(mat)
@@ -541,6 +545,7 @@ with sec_a:
 
         # ── A3: Outcomes × Outcomes ───────────────────────────
         with a3:
+            st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
             mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
             mat.index = mat.columns = OUTCOME_LABELS
             fill_diagonal_with_nan(mat)
@@ -558,6 +563,7 @@ with sec_a:
 
         # ── A4: Ways of Working descriptive table ─────────────
         with a4:
+            st.markdown("#### Ways of Working — Average Scores by Directorate")
             tdf, styler = build_wow_table(filtered, "Q1", directorates)
             wow_table_cards(n_total, tdf)
             st.markdown("**I** = Individual average &nbsp;|&nbsp; "
@@ -567,13 +573,14 @@ with sec_a:
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
+            st.markdown("#### Employee Experience — Average Scores by Directorate")
             tdf, styler = build_outcome_table(filtered, "Q1", directorates)
             outcome_table_cards(n_total, tdf)
             st.dataframe(styler, use_container_width=True, height=580)
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
-            st.markdown("##### Ways of Working by Organisational Level")
+            st.markdown("#### Ways of Working — Average Scores by Organisational Level")
             tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
             wow_table_cards(n_total, tdf_wow)
             st.markdown("**I** = Individual average &nbsp;|&nbsp; "
@@ -582,7 +589,7 @@ with sec_a:
             st.dataframe(styler_wow, use_container_width=True, height=720)
 
             st.markdown("---")
-            st.markdown("##### Sentiment Outcomes by Organisational Level")
+            st.markdown("#### Employee Experience — Average Scores by Organisational Level")
             tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
             outcome_table_cards(n_total, tdf_out)
             st.dataframe(styler_out, use_container_width=True, height=580)
@@ -633,6 +640,7 @@ with sec_b:
             else:
                 b1_place, b1_ind = st.tabs(["Place (P)", "Individual (I)"])
                 with b1_place:
+                    st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
                     mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
@@ -640,6 +648,7 @@ with sec_b:
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
                                     use_container_width=True)
                 with b1_ind:
+                    st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                     mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
@@ -654,6 +663,7 @@ with sec_b:
             else:
                 b2_place, b2_ind = st.tabs(["Place (P)", "Individual (I)"])
                 with b2_place:
+                    st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
                     mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
@@ -661,6 +671,7 @@ with sec_b:
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
                                     use_container_width=True)
                 with b2_ind:
+                    st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
                     mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
@@ -673,6 +684,7 @@ with sec_b:
             if n_dir < 3:
                 st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
             else:
+                st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
                 mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
                 mat.index = mat.columns = OUTCOME_LABELS
                 fill_diagonal_with_nan(mat)
@@ -692,9 +704,9 @@ with sec_b:
             if not service_areas:
                 st.info("No service area breakdown available for this directorate.")
             else:
+                st.markdown(f"#### Ways of Working — Average Scores by Service Area ({selected_dir})")
                 tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
                 wow_table_cards(n_dir, tdf)
-                st.markdown(f"**{selected_dir}** — Ways of Working by Service Area")
                 st.markdown("**I** = Individual average &nbsp;|&nbsp; "
                             "**P** = Place average &nbsp;|&nbsp; "
                             "**Δ** = I − P")
@@ -705,7 +717,7 @@ with sec_b:
             if not service_areas:
                 st.info("No service area breakdown available for this directorate.")
             else:
+                st.markdown(f"#### Employee Experience — Average Scores by Service Area ({selected_dir})")
                 tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
                 outcome_table_cards(n_dir, tdf)
-                st.markdown(f"**{selected_dir}** — Sentiment Outcomes by Service Area")
                 st.dataframe(styler, use_container_width=True, height=580)
