@@ -616,7 +616,7 @@ with sec_a:
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                use_container_width=True)
+                                use_container_width=True, key="a1_place")
             with a1_ind:
                 st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                 mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
@@ -624,7 +624,7 @@ with sec_a:
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                use_container_width=True)
+                                use_container_width=True, key="a1_ind")
 
         # ── A2: Ways of Working × Ways of Working ────────────
         with a2:
@@ -636,7 +636,7 @@ with sec_a:
                 fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                use_container_width=True)
+                                use_container_width=True, key="a2_place")
             with a2_ind:
                 st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
                 mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
@@ -644,7 +644,7 @@ with sec_a:
                 fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                use_container_width=True)
+                                use_container_width=True, key="a2_ind")
 
         # ── A3: Outcomes × Outcomes ───────────────────────────
         with a3:
@@ -654,7 +654,7 @@ with sec_a:
             fill_diagonal_with_nan(mat)
             render_heatmap_cards(n_total, mat)
             st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                            use_container_width=True)
+                            use_container_width=True, key="a3")
 
     # ── Descriptive Analysis group ────────────────────────
     with desc_group:
@@ -690,7 +690,7 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True)
+                st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True, key="a4_bar")
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
@@ -714,7 +714,7 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
+                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="a5_bar")
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
@@ -745,7 +745,7 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, filtered), use_container_width=True)
+                st.plotly_chart(make_wow_bar_chart(chart_df, filtered), use_container_width=True, key="a6_wow_bar")
 
             st.markdown("---")
             st.markdown("#### Employee Experience — Average Scores by Organisational Level")
@@ -767,7 +767,7 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
+                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="a6_out_bar")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════
@@ -821,7 +821,7 @@ with sec_b:
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                    use_container_width=True)
+                                    use_container_width=True, key="b1_place")
                 with b1_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                     mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
@@ -829,7 +829,7 @@ with sec_b:
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
-                                    use_container_width=True)
+                                    use_container_width=True, key="b1_ind")
 
         # ── B2 ────────────────────────────────────────────────
         with b2:
@@ -844,7 +844,7 @@ with sec_b:
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                    use_container_width=True)
+                                    use_container_width=True, key="b2_place")
                 with b2_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
                     mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
@@ -852,7 +852,7 @@ with sec_b:
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                    use_container_width=True)
+                                    use_container_width=True, key="b2_ind")
 
         # ── B3 ────────────────────────────────────────────────
         with b3:
@@ -865,7 +865,7 @@ with sec_b:
                 fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_dir, mat)
                 st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                                use_container_width=True)
+                                use_container_width=True, key="b3")
 
     # ── Descriptive Analysis group ────────────────────────
     with b_desc_group:
@@ -903,7 +903,7 @@ with sec_b:
                         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
-                    st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True)
+                    st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True, key="b4_bar")
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
@@ -930,4 +930,4 @@ with sec_b:
                         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
-                    st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
+                    st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="b5_bar")
