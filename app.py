@@ -149,6 +149,8 @@ OUTCOME_COLS   = [f"Q{i}" for i in range(55, 70)]   # Q55–Q69
 
 WOW_ALL_LABELS = [f"P · {t}" for t in WOW_THEMES] + [f"I · {t}" for t in WOW_THEMES]
 
+Q9_ORDER = ["My directorate", "My service", "My immediate team", "Other"]
+
 # Colours
 PRIMARY  = "#0F4C6B"
 RED      = "#C0392B"
@@ -305,6 +307,32 @@ def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
             font=dict(color="#1A2B3C", size=12),
         ),
         height=560,
+    )
+    return fig
+
+
+def make_outcome_bar_chart(df: pd.DataFrame) -> go.Figure:
+    """Bar chart: average score for each employee experience outcome."""
+    vals = [df[col].mean() for col in OUTCOME_COLS]
+    fig = go.Figure(go.Bar(
+        x=OUTCOME_LABELS, y=vals,
+        marker_color=PRIMARY,
+        hovertemplate="%{x}<br>Score: %{y:.2f}<extra></extra>",
+    ))
+    fig.update_layout(
+        font=dict(family="Inter", color="#1A2B3C"),
+        paper_bgcolor="#F7F9FC",
+        plot_bgcolor="#F7F9FC",
+        margin=dict(l=10, r=10, t=10, b=160),
+        xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+        yaxis=dict(
+            title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
+            range=[0, 5.5],
+            tickfont=dict(size=11, color="#1A2B3C"),
+            gridcolor="#E8EEF2",
+        ),
+        legend=dict(font=dict(color="#1A2B3C", size=12)),
+        height=480,
     )
     return fig
 
@@ -657,19 +685,56 @@ with sec_a:
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
+            q9_ordered = sorted(q9_levels,
+                                key=lambda x: next(
+                                    (i for i, o in enumerate(Q9_ORDER) if o.lower() == x.lower()),
+                                    len(Q9_ORDER)))
+
             st.markdown("#### Ways of Working — Average Scores by Organisational Level")
-            tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
-            wow_table_cards(n_total, tdf_wow)
-            st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                        "**P** = Place average &nbsp;|&nbsp; "
-                        "**Δ** = I − P")
-            st.dataframe(styler_wow, use_container_width=True, height=720)
+            a6_wow_table, a6_wow_chart = st.tabs(["Table", "Bar Chart"])
+            with a6_wow_table:
+                tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
+                wow_table_cards(n_total, tdf_wow)
+                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                            "**P** = Place average &nbsp;|&nbsp; "
+                            "**Δ** = I − P")
+                st.dataframe(styler_wow, use_container_width=True, height=720)
+            with a6_wow_chart:
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select org level</p>', unsafe_allow_html=True)
+                sel_q9_wow = st.radio("Select org level", q9_ordered, horizontal=True,
+                                      label_visibility="collapsed", key="a6_wow_q9")
+                chart_df = filtered[filtered["Q9"] == sel_q9_wow]
+                n_col, _ = st.columns([1, 5])
+                with n_col:
+                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                unsafe_allow_html=True)
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True)
 
             st.markdown("---")
             st.markdown("#### Employee Experience — Average Scores by Organisational Level")
-            tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
-            outcome_table_cards(n_total, tdf_out)
-            st.dataframe(styler_out, use_container_width=True, height=580)
+            a6_out_table, a6_out_chart = st.tabs(["Table", "Bar Chart"])
+            with a6_out_table:
+                tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
+                outcome_table_cards(n_total, tdf_out)
+                st.dataframe(styler_out, use_container_width=True, height=580)
+            with a6_out_chart:
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select org level</p>', unsafe_allow_html=True)
+                sel_q9_out = st.radio("Select org level", q9_ordered, horizontal=True,
+                                      label_visibility="collapsed", key="a6_out_q9")
+                chart_df = filtered[filtered["Q9"] == sel_q9_out]
+                n_col, _ = st.columns([1, 5])
+                with n_col:
+                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                unsafe_allow_html=True)
+                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════
