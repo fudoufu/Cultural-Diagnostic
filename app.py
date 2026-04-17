@@ -615,7 +615,7 @@ with sec_a:
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_place")
             with a1_ind:
                 st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
@@ -623,7 +623,7 @@ with sec_a:
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_ind")
 
         # ── A2: Ways of Working × Ways of Working ────────────
@@ -821,7 +821,7 @@ with sec_b:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_place")
                 with b1_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
@@ -829,7 +829,7 @@ with sec_b:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, OUTCOME_LABELS),
+                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_ind")
 
         # ── B2 ────────────────────────────────────────────────
