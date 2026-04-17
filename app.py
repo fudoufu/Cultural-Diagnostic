@@ -157,6 +157,14 @@ RED      = "#C0392B"
 AMBER    = "#F39C12"
 GREEN    = "#27AE60"
 
+TREND_COLOURS = [
+    "#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+    "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf",
+    "#aec7e8","#ffbb78","#98df8a","#ff9896","#c5b0d5",
+    "#c49c94","#f7b6d2","#c7c7c7","#dbdb8d","#9edae5",
+    "#393b79","#637939",
+]
+
 HEATMAP_COLORSCALE = [[0.0, "#0F4C6B"], [0.5, "#FFFFFF"], [1.0, "#C0392B"]]
 
 # ── Data loading ──────────────────────────────────────────────────────────────────
@@ -346,6 +354,56 @@ def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) ->
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
             font=dict(color="#1A2B3C", size=12),
+        ),
+        height=480,
+    )
+    return fig
+
+
+def make_trend_chart(df: pd.DataFrame, wow_cols: list, wow_labels: list,
+                     outcome_col: str, outcome_label: str) -> go.Figure:
+    """Trend lines (linear regression) for each WoW theme vs a selected outcome."""
+    fig = go.Figure()
+    for col, label, colour in zip(wow_cols, wow_labels, TREND_COLOURS):
+        valid = df[[col, outcome_col]].dropna()
+        if len(valid) < 3:
+            continue
+        x = valid[col].values.astype(float)
+        y = valid[outcome_col].values.astype(float)
+        slope, intercept = np.polyfit(x, y, 1)
+        x_line = np.array([1.0, 5.0])
+        y_line = slope * x_line + intercept
+        fig.add_trace(go.Scatter(
+            x=x_line, y=y_line,
+            mode="lines",
+            name=label,
+            line=dict(color=colour, width=2),
+            hovertemplate=f"{label}<br>WoW score: %{{x:.0f}}<br>{outcome_label}: %{{y:.2f}}<extra></extra>",
+        ))
+    fig.update_layout(
+        font=dict(family="Inter", color="#1A2B3C"),
+        paper_bgcolor="#F7F9FC",
+        plot_bgcolor="#F7F9FC",
+        margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(
+            title=dict(text="WoW Rating (1–5)", font=dict(color="#1A2B3C", size=12)),
+            tickvals=[1, 2, 3, 4, 5],
+            range=[0.8, 5.2],
+            tickfont=dict(color="#1A2B3C"),
+            gridcolor="#E8EEF2",
+        ),
+        yaxis=dict(
+            title=dict(text=outcome_label, font=dict(color="#1A2B3C", size=12)),
+            tickvals=[1, 2, 3, 4, 5],
+            range=[0.8, 5.2],
+            tickfont=dict(color="#1A2B3C"),
+            gridcolor="#E8EEF2",
+        ),
+        legend=dict(
+            font=dict(color="#1A2B3C", size=11),
+            orientation="v",
+            x=1.01, y=1,
+            xanchor="left",
         ),
         height=480,
     )
@@ -617,6 +675,12 @@ with sec_a:
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_place")
+                st.markdown("---")
+                st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
+                sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_place_out")
+                out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                st.plotly_chart(make_trend_chart(filtered, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
+                                use_container_width=True, key=f"a1_place_trend_{sel_out}")
             with a1_ind:
                 st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                 mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
@@ -625,6 +689,12 @@ with sec_a:
                 render_heatmap_cards(n_total, mat)
                 st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_ind")
+                st.markdown("---")
+                st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
+                sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_ind_out")
+                out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                st.plotly_chart(make_trend_chart(filtered, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
+                                use_container_width=True, key=f"a1_ind_trend_{sel_out}")
 
         # ── A2: Ways of Working × Ways of Working ────────────
         with a2:
@@ -823,6 +893,12 @@ with sec_b:
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_place")
+                    st.markdown("---")
+                    st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
+                    sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_place_out")
+                    out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                    st.plotly_chart(make_trend_chart(dir_df, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
+                                    use_container_width=True, key=f"b1_place_trend_{sel_out}")
                 with b1_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
                     mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
@@ -831,6 +907,12 @@ with sec_b:
                     render_heatmap_cards(n_dir, mat)
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_ind")
+                    st.markdown("---")
+                    st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
+                    sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_ind_out")
+                    out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                    st.plotly_chart(make_trend_chart(dir_df, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
+                                    use_container_width=True, key=f"b1_ind_trend_{sel_out}")
 
         # ── B2 ────────────────────────────────────────────────
         with b2:
