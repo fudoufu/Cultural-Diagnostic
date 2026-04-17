@@ -86,6 +86,12 @@ div[data-testid="stRadio"] label p {
     color: #1A2B3C !important;
     font-weight: 500;
 }
+h4 {
+    color: #0F4C6B !important;
+    font-size: 17px !important;
+    font-weight: 600 !important;
+    margin: 4px 0 12px 0 !important;
+}
 .landing-hero {
     min-height: 62vh;
     display: flex;
