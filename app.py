@@ -690,7 +690,8 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True, key="a4_bar")
+                st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True,
+                                key=f"a4_bar_{chart_dir}")
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
@@ -745,7 +746,8 @@ with sec_a:
                     st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df, filtered), use_container_width=True, key="a6_wow_bar")
+                st.plotly_chart(make_wow_bar_chart(chart_df, filtered), use_container_width=True,
+                                key=f"a6_wow_bar_{sel_q9_wow}")
 
             st.markdown("---")
             st.markdown("#### Employee Experience — Average Scores by Organisational Level")
@@ -903,7 +905,8 @@ with sec_b:
                         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
-                    st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True, key="b4_bar")
+                    st.plotly_chart(make_wow_bar_chart(chart_df, overall_df), use_container_width=True,
+                                    key=f"b4_bar_{chart_sa}")
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
