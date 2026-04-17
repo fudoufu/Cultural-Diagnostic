@@ -295,12 +295,15 @@ def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
         margin=dict(l=10, r=10, t=10, b=180),
         xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
         yaxis=dict(
-            title="Average Score",
-            tickfont=dict(size=11),
+            title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
+            tickfont=dict(size=11, color="#1A2B3C"),
             zeroline=True, zerolinecolor="#9EB5C2", zerolinewidth=1.5,
             gridcolor="#E8EEF2",
         ),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            font=dict(color="#1A2B3C", size=12),
+        ),
         height=560,
     )
     return fig
