@@ -783,7 +783,15 @@ with sec_b:
                                 "**Δ** = I − P")
                     st.dataframe(styler, use_container_width=True, height=720)
                 with b4_chart:
-                    st.plotly_chart(make_wow_bar_chart(dir_df), use_container_width=True)
+                    st.markdown(
+                        '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                        'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                        'Select service area</p>', unsafe_allow_html=True)
+                    sa_options = ["Overall"] + list(service_areas)
+                    chart_sa = st.radio("Select service area", sa_options, horizontal=True,
+                                        label_visibility="collapsed", key="b4_sa_chart")
+                    chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
+                    st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True)
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
