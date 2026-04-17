@@ -485,8 +485,8 @@ q9_levels    = get_filter_options(df, "Q9")
 
 # ── Top-level section tabs ────────────────────────────────────────────────────────
 sec_a, sec_b = st.tabs([
-    "Section A — Whole Council",
-    "Section B — By Directorate",
+    "Section A — Council-Wide",
+    "Section B — Service Deep Dive",
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════════
