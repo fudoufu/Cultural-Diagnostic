@@ -679,9 +679,26 @@ with sec_a:
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
             st.markdown("#### Employee Experience — Average Scores by Directorate")
-            tdf, styler = build_outcome_table(filtered, "Q1", directorates)
-            outcome_table_cards(n_total, tdf)
-            st.dataframe(styler, use_container_width=True, height=580)
+            a5_table, a5_chart = st.tabs(["Table", "Bar Chart"])
+            with a5_table:
+                tdf, styler = build_outcome_table(filtered, "Q1", directorates)
+                outcome_table_cards(n_total, tdf)
+                st.dataframe(styler, use_container_width=True, height=580)
+            with a5_chart:
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select group</p>', unsafe_allow_html=True)
+                dir_options = ["Overall"] + list(directorates)
+                chart_dir = st.radio("Select group", dir_options, horizontal=True,
+                                     label_visibility="collapsed", key="a5_dir_chart")
+                chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
+                n_col, _ = st.columns([1, 5])
+                with n_col:
+                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                unsafe_allow_html=True)
+                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
@@ -877,6 +894,23 @@ with sec_b:
                 st.info("No service area breakdown available for this directorate.")
             else:
                 st.markdown(f"#### Employee Experience — Average Scores by Service Area ({selected_dir})")
-                tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
-                outcome_table_cards(n_dir, tdf)
-                st.dataframe(styler, use_container_width=True, height=580)
+                b5_table, b5_chart = st.tabs(["Table", "Bar Chart"])
+                with b5_table:
+                    tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
+                    outcome_table_cards(n_dir, tdf)
+                    st.dataframe(styler, use_container_width=True, height=580)
+                with b5_chart:
+                    st.markdown(
+                        '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                        'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                        'Select service area</p>', unsafe_allow_html=True)
+                    sa_options = ["Overall"] + list(service_areas)
+                    chart_sa = st.radio("Select service area", sa_options, horizontal=True,
+                                        label_visibility="collapsed", key="b5_sa_chart")
+                    chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
+                    n_col, _ = st.columns([1, 5])
+                    with n_col:
+                        st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
+                                    f'<p class="card-value">n = {len(chart_df):,}</p></div>',
+                                    unsafe_allow_html=True)
+                    st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True)
