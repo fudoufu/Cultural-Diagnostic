@@ -55,13 +55,23 @@ html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sa
 .metric-card {
     background: #FFFFFF;
     border: 1px solid #D6E0EA;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+.metric-card .card-label { color: #5A7080; font-size: 11px; font-weight: 500; margin: 0; }
+.metric-card .card-value { color: #0F4C6B; font-size: 15px; font-weight: 700; margin: 2px 0 0; }
+.metric-card .card-sub   { color: #1A2B3C; font-size: 12px; font-weight: 500; margin: 1px 0 0; }
+.metric-card-lg {
+    background: #FFFFFF;
+    border: 1px solid #D6E0EA;
     border-radius: 8px;
     padding: 14px 18px;
     margin-bottom: 12px;
 }
-.metric-card .card-label { color: #5A7080; font-size: 12px; font-weight: 500; margin: 0; }
-.metric-card .card-value { color: #0F4C6B; font-size: 20px; font-weight: 700; margin: 4px 0 0; }
-.metric-card .card-sub   { color: #1A2B3C; font-size: 13px; font-weight: 500; margin: 2px 0 0; }
+.metric-card-lg .card-label { color: #5A7080; font-size: 12px; font-weight: 500; margin: 0; }
+.metric-card-lg .card-value { color: #0F4C6B; font-size: 20px; font-weight: 700; margin: 4px 0 0; }
+.metric-card-lg .card-sub   { color: #1A2B3C; font-size: 13px; font-weight: 500; margin: 2px 0 0; }
 .section-pill {
     display: inline-block;
     background: #0F4C6B;
@@ -870,7 +880,7 @@ with sec_a:
                     ) if members else '<p class="card-sub"><em>No outcomes assigned</em></p>'
                     with col_ui:
                         st.markdown(
-                            f'<div class="metric-card">'
+                            f'<div class="metric-card-lg">'
                             f'<p class="card-label">{lv} — unnamed</p>'
                             f'{items_html}'
                             f'</div>',
