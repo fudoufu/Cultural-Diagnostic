@@ -94,6 +94,10 @@ h4 {
     font-weight: 600 !important;
     margin: 4px 0 12px 0 !important;
 }
+[data-testid="stCaptionContainer"] p, .stCaption {
+    color: #3A4D5C !important;
+    font-size: 13px !important;
+}
 .landing-hero {
     min-height: 62vh;
     display: flex;
@@ -251,7 +255,7 @@ def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Fig
         zmid=0, zmin=-1, zmax=1,
         text=text,
         texttemplate="%{text}",
-        textfont={"size": 9},
+        textfont={"size": 9, "color": "#1A2B3C"},
         hovertemplate="%{y}<br>%{x}<br>r = %{z:.3f}<extra></extra>",
         colorbar=dict(title="r", tickvals=[-1, -0.5, 0, 0.5, 1], len=0.7),
     ))
@@ -828,12 +832,13 @@ with sec_a:
 
                 st.markdown(f"#### Step 2 · Factor Loadings — Which outcomes cluster together? (n = {n_efa:,})")
                 st.caption(
-                    "This heatmap shows how strongly each employee experience outcome (rows) relates to each "
-                    "latent factor (columns LV1, LV2…). Dark blue = strong positive association; dark red = "
-                    "strong negative. Each outcome will typically load highly on one factor and weakly on others. "
-                    "Outcomes that load together on the same factor are measuring the same underlying theme — "
-                    "that's what gives the factor its meaning. Read down each column to see what a factor "
-                    "represents, then give it a name based on the outcomes that belong to it."
+                    "Each cell shows a loading value — a correlation score between that outcome question and "
+                    "that factor, ranging from -1 to +1. A value above 0.7 means that question is a core part "
+                    "of what that factor represents. Between 0.4 and 0.7 is a moderate association. Below 0.3 "
+                    "means that question isn't really measuring this factor. Read down each column to see which "
+                    "outcomes cluster together — that cluster is what gives the factor its meaning, and tells "
+                    "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
+                    "load highly on LV1, you might call it 'Retention & Advocacy')."
                 )
                 fig_load = make_heatmap(loadings_display, lv_cols, OUTCOME_LABELS)
                 st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
@@ -955,6 +960,7 @@ with sec_a:
                                 y=pivot_est.index.tolist(),
                                 text=text_vals,
                                 texttemplate="%{text}",
+                                textfont={"size": 9, "color": "#1A2B3C"},
                                 colorscale=HEATMAP_COLORSCALE,
                                 zmid=0,
                                 colorbar=dict(title="β", tickfont=dict(color="#1A2B3C")),
