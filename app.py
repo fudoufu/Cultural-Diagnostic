@@ -1218,47 +1218,68 @@ with sec_a:
                     )
                     st.plotly_chart(fig_coef, use_container_width=True, key=f"slm_coef_{sel_outcome_slm}_{wow_choice_slm}")
 
-                    # ── Residual plot ─────────────────────────────────────
-                    st.markdown("#### Model Accuracy — Predicted Scores by Actual Score")
+                    # ── Correlation scatter ───────────────────────────────
+                    st.markdown("#### Predicted vs Actual — Model Fit Scatter")
                     st.caption(
-                        "Each column groups respondents who gave the same actual score (1–5). The box "
-                        "shows the spread of what the model predicted for those people. A good model "
-                        "shows boxes rising steadily from left to right — meaning higher actual scores "
-                        "tend to get higher predictions. Boxes that overlap a lot between adjacent scores "
-                        "show where the model struggles to distinguish between those response groups."
+                        "Each dot is one respondent: X = what the model predicted for them, "
+                        "Y = what they actually scored. The diagonal line shows perfect prediction. "
+                        "Dots closer to the line = better fit. The Pearson R shown tells you the "
+                        "strength of the linear relationship between predictions and actuals — "
+                        "R closer to 1.0 means the model's ranking of respondents matches reality well, "
+                        "even if the absolute predicted values don't land exactly on the 1–5 scale."
                     )
                     fit_df_plot = filtered[list(pred_cols_slm) + [outcome_col_slm]].dropna().copy()
                     fit_df_plot["predicted"] = fitted_slm
-                    fit_df_plot["actual"] = fit_df_plot[outcome_col_slm].astype(int)
+                    fit_df_plot["actual"] = fit_df_plot[outcome_col_slm].astype(float)
 
-                    fig_resid = go.Figure()
-                    for score in sorted(fit_df_plot["actual"].unique()):
-                        preds = fit_df_plot.loc[fit_df_plot["actual"] == score, "predicted"].tolist()
-                        fig_resid.add_trace(go.Box(
-                            y=preds,
-                            name=str(score),
-                            marker_color=PRIMARY,
-                            line_color=PRIMARY,
-                            fillcolor="rgba(15,76,107,0.15)",
-                            boxmean=True,
-                            hovertemplate=f"Actual score: {score}<br>Predicted: %{{y:.2f}}<extra></extra>",
-                        ))
-                    fig_resid.update_layout(
+                    pearson_r = float(np.corrcoef(fit_df_plot["actual"], fit_df_plot["predicted"])[0, 1])
+
+                    # Jitter actual scores slightly so overlapping dots are visible
+                    rng = np.random.default_rng(42)
+                    jitter = rng.uniform(-0.15, 0.15, size=len(fit_df_plot))
+
+                    fig_scatter = go.Figure()
+                    fig_scatter.add_trace(go.Scatter(
+                        x=fit_df_plot["predicted"],
+                        y=fit_df_plot["actual"] + jitter,
+                        mode="markers",
+                        marker=dict(color=PRIMARY, opacity=0.25, size=5),
+                        hovertemplate="Predicted: %{x:.2f}<br>Actual: %{y:.1f}<extra></extra>",
+                        name="Respondents",
+                    ))
+                    # Perfect prediction line
+                    axis_min, axis_max = 1.0, 5.0
+                    fig_scatter.add_trace(go.Scatter(
+                        x=[axis_min, axis_max], y=[axis_min, axis_max],
+                        mode="lines",
+                        line=dict(color="#C0392B", dash="dash", width=1.5),
+                        name="Perfect prediction",
+                    ))
+                    fig_scatter.add_annotation(
+                        x=0.04, y=0.95, xref="paper", yref="paper",
+                        text=f"<b>Pearson R = {pearson_r:.3f}</b>",
+                        showarrow=False,
+                        font=dict(color="#1A2B3C", size=13),
+                        bgcolor="#FFFFFF", bordercolor="#D6E0EA", borderwidth=1,
+                    )
+                    fig_scatter.update_layout(
                         font=dict(family="Inter", color="#1A2B3C"),
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=10, b=10),
                         xaxis=dict(
-                            title=dict(text="Actual score given by respondent", font=dict(color="#1A2B3C")),
+                            title=dict(text="Model's predicted score", font=dict(color="#1A2B3C")),
+                            range=[axis_min - 0.2, axis_max + 0.2],
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         yaxis=dict(
-                            title=dict(text="Model's predicted score", font=dict(color="#1A2B3C")),
+                            title=dict(text="Actual score", font=dict(color="#1A2B3C")),
+                            range=[axis_min - 0.3, axis_max + 0.3],
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
-                        showlegend=False,
-                        height=360,
+                        legend=dict(font=dict(color="#1A2B3C")),
+                        height=400,
                     )
-                    st.plotly_chart(fig_resid, use_container_width=True, key=f"slm_resid_{sel_outcome_slm}_{wow_choice_slm}")
+                    st.plotly_chart(fig_scatter, use_container_width=True, key=f"slm_scatter_{sel_outcome_slm}_{wow_choice_slm}")
 
                     # ── Elimination log ───────────────────────────────────
                     with st.expander("Elimination log"):
