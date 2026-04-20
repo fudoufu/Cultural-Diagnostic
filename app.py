@@ -788,235 +788,236 @@ with sec_a:
                 st.plotly_chart(make_trend_chart(filtered, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
                                 use_container_width=True, key=f"a1_ind_trend_{sel_out}")
 
-            # ── SEM / EFA ─────────────────────────────────────────────
+            # ── Advanced Analysis tabs ─────────────────────────────────
             st.markdown("---")
-            st.markdown("#### Exploratory Factor Analysis & Structural Equation Modelling")
-            st.caption(
-                "Step 1: EFA identifies hidden clusters in your employee experience outcomes. "
-                "Step 2: SEM then estimates how each WoW theme predicts those clusters, "
-                "accounting for intercorrelations between WoW themes."
-            )
+            a1_adv_sem, a1_adv_model = st.tabs([
+                "Exploratory Factor Analysis & SEM",
+                "Second-Level Modelling",
+            ])
 
-            outcome_clean_sem = filtered[OUTCOME_COLS].dropna()
-            if len(outcome_clean_sem) < 20:
-                st.warning("Too few complete responses for SEM analysis.")
-            else:
-                # Scree plot — eigenvalues from correlation matrix (no EFA needed)
-                corr_mat = np.corrcoef(outcome_clean_sem.values.T)
-                eigenvalues = sorted(np.linalg.eigvalsh(corr_mat).tolist(), reverse=True)
-                n_kaiser = max(2, sum(1 for e in eigenvalues if e > 1))
-
-                st.markdown("#### Step 1 · Scree Plot — How many hidden factors exist in your outcome data?")
+            with a1_adv_sem:
                 st.caption(
-                    "This graph helps you decide how many distinct themes exist within your employee experience "
-                    "questions. Each point is one potential theme (factor), and its height shows how much shared "
-                    "information it captures across your outcome questions. The dashed line is a cut-off rule: "
-                    "factors above it are capturing more than a single question's worth of information on their "
-                    "own, so they're worth keeping. Look for where the curve suddenly goes from steep to flat — "
-                    "that's the point where additional factors stop adding meaningful new information. The factors "
-                    "to the left of that bend are your real underlying themes. Use the slider below to set how "
-                    "many to extract."
-                )
-                fig_scree = go.Figure([go.Scatter(
-                    x=list(range(1, len(eigenvalues) + 1)), y=eigenvalues,
-                    mode="lines+markers",
-                    line=dict(color=PRIMARY, width=2),
-                    marker=dict(color=PRIMARY, size=7),
-                    hovertemplate="Factor %{x}<br>Eigenvalue = %{y:.3f}<extra></extra>",
-                )])
-                fig_scree.add_hline(
-                    y=1, line_dash="dash", line_color="#C0392B",
-                    annotation_text="Kaiser criterion (λ = 1)",
-                    annotation_font=dict(color="#C0392B", size=11),
-                )
-                fig_scree.update_layout(
-                    font=dict(family="Inter", color="#1A2B3C"),
-                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                    margin=dict(l=10, r=10, t=20, b=10),
-                    xaxis=dict(title="Factor", tickvals=list(range(1, len(eigenvalues) + 1)),
-                               tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
-                    yaxis=dict(title="Eigenvalue", tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
-                    height=300,
-                )
-                st.plotly_chart(fig_scree, use_container_width=True, key="a1_sem_scree")
-
-                n_factors = st.slider(
-                    "Number of latent factors", min_value=2,
-                    max_value=min(8, len(OUTCOME_COLS) - 1),
-                    value=n_kaiser, key="a1_sem_nfactors",
-                    help="Factors with eigenvalue > 1 (Kaiser criterion) are suggested as a starting point",
+                    "Step 1: EFA identifies hidden clusters in your employee experience outcomes. "
+                    "Step 2: SEM then estimates how each WoW theme predicts those clusters, "
+                    "accounting for intercorrelations between WoW themes."
                 )
 
-                # EFA loadings
-                loadings, n_efa = run_efa(filtered[OUTCOME_COLS], n_factors)
-                loadings_display = loadings.copy()
-                loadings_display.index = OUTCOME_LABELS
-                lv_cols = [f"LV{i+1}" for i in range(n_factors)]
-
-                st.markdown(f"#### Step 2 · Factor Loadings — Which outcomes cluster together? (n = {n_efa:,})")
-                st.caption(
-                    "Each cell shows a loading value — a correlation score between that outcome question and "
-                    "that factor, ranging from -1 to +1. A value above 0.7 means that question is a core part "
-                    "of what that factor represents. Between 0.4 and 0.7 is a moderate association. Below 0.3 "
-                    "means that question isn't really measuring this factor. Read down each column to see which "
-                    "outcomes cluster together — that cluster is what gives the factor its meaning, and tells "
-                    "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
-                    "load highly on LV1, you might call it 'Retention & Advocacy')."
-                )
-                # Summary cards — one per factor showing its member outcomes
-                max_load_pre = loadings_display.abs().max(axis=1)
-                primary_pre = loadings_display.abs().idxmax(axis=1).copy()
-                primary_pre[max_load_pre < 0.3] = "Unassigned"
-                factor_members = {lv: [] for lv in lv_cols}
-                factor_members["Unassigned"] = []
-                for outcome, lv in primary_pre.items():
-                    factor_members[lv].append(outcome)
-
-                card_cols = st.columns(n_factors)
-                for col_ui, lv in zip(card_cols, lv_cols):
-                    members = factor_members[lv]
-                    items_html = "".join(
-                        f'<p class="card-sub">· {m}</p>' for m in members
-                    ) if members else '<p class="card-sub"><em>No outcomes assigned</em></p>'
-                    with col_ui:
-                        st.markdown(
-                            f'<div class="metric-card-lg">'
-                            f'<p class="card-label">{lv} — unnamed</p>'
-                            f'{items_html}'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
-
-                fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
-                st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
-
-                # SEM
-                max_load = loadings_display.abs().max(axis=1)
-                primary = loadings_display.abs().idxmax(axis=1).copy()
-                primary[max_load < 0.3] = "Unassigned"
-
-                st.markdown("#### Step 3 · SEM Structural Paths — Which Ways of Working drive each factor?")
-                wow_choice_sem = st.radio(
-                    "WoW predictors", ["Place (P)", "Individual (I)"],
-                    horizontal=True, key="a1_sem_wow",
-                )
-                wow_cols_sem = tuple(WOW_PLACE_COLS if "Place" in wow_choice_sem else WOW_IND_COLS)
-
-                raw_primary = pd.Series(primary.values, index=OUTCOME_COLS)
-                factor_map_items = tuple(sorted(
-                    (col, lv) for col, lv in raw_primary.items() if lv != "Unassigned"
-                ))
-
-                fit_df_sem = filtered[OUTCOME_COLS + list(wow_cols_sem)].dropna()
-
-                if len(fit_df_sem) < 100:
-                    st.warning(f"Too few complete cases ({len(fit_df_sem)}) for SEM.")
-                elif not factor_map_items:
-                    st.warning("No outcomes assigned to factors. Try reducing the number of factors.")
+                outcome_clean_sem = filtered[OUTCOME_COLS].dropna()
+                if len(outcome_clean_sem) < 20:
+                    st.warning("Too few complete responses for SEM analysis.")
                 else:
-                    results_sem, fit_stats_sem, err_sem, model_desc_sem = run_sem(
-                        fit_df_sem, wow_cols_sem, factor_map_items
-                    )
+                    corr_mat = np.corrcoef(outcome_clean_sem.values.T)
+                    eigenvalues = sorted(np.linalg.eigvalsh(corr_mat).tolist(), reverse=True)
+                    n_kaiser = max(2, sum(1 for e in eigenvalues if e > 1))
+
+                    st.markdown("#### Step 1 · Scree Plot — How many hidden factors exist in your outcome data?")
                     st.caption(
-                        "The SEM estimates a path coefficient (β) from each WoW theme to each latent factor, "
-                        "while simultaneously accounting for correlations between WoW themes. A positive β means "
-                        "that WoW theme is associated with higher scores on that factor; negative means lower. "
-                        "Unlike simple correlation, SEM isolates each WoW theme's unique contribution after "
-                        "controlling for all the others."
+                        "This graph helps you decide how many distinct themes exist within your employee experience "
+                        "questions. Each point is one potential theme (factor), and its height shows how much shared "
+                        "information it captures across your outcome questions. The dashed line is a cut-off rule: "
+                        "factors above it are capturing more than a single question's worth of information on their "
+                        "own, so they're worth keeping. Look for where the curve suddenly goes from steep to flat — "
+                        "that's the point where additional factors stop adding meaningful new information. The factors "
+                        "to the left of that bend are your real underlying themes. Use the slider below to set how "
+                        "many to extract."
                     )
-                    with st.expander("Model specification"):
-                        st.code(model_desc_sem, language="text")
+                    fig_scree = go.Figure([go.Scatter(
+                        x=list(range(1, len(eigenvalues) + 1)), y=eigenvalues,
+                        mode="lines+markers",
+                        line=dict(color=PRIMARY, width=2),
+                        marker=dict(color=PRIMARY, size=7),
+                        hovertemplate="Factor %{x}<br>Eigenvalue = %{y:.3f}<extra></extra>",
+                    )])
+                    fig_scree.add_hline(
+                        y=1, line_dash="dash", line_color="#C0392B",
+                        annotation_text="Kaiser criterion (λ = 1)",
+                        annotation_font=dict(color="#C0392B", size=11),
+                    )
+                    fig_scree.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=20, b=10),
+                        xaxis=dict(title="Factor", tickvals=list(range(1, len(eigenvalues) + 1)),
+                                   tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        yaxis=dict(title="Eigenvalue", tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        height=300,
+                    )
+                    st.plotly_chart(fig_scree, use_container_width=True, key="a1_sem_scree")
 
-                    if err_sem:
-                        st.error(f"SEM could not converge: {err_sem}")
+                    n_factors = st.slider(
+                        "Number of latent factors", min_value=2,
+                        max_value=min(8, len(OUTCOME_COLS) - 1),
+                        value=n_kaiser, key="a1_sem_nfactors",
+                        help="Factors with eigenvalue > 1 (Kaiser criterion) are suggested as a starting point",
+                    )
+
+                    loadings, n_efa = run_efa(filtered[OUTCOME_COLS], n_factors)
+                    loadings_display = loadings.copy()
+                    loadings_display.index = OUTCOME_LABELS
+                    lv_cols = [f"LV{i+1}" for i in range(n_factors)]
+
+                    st.markdown(f"#### Step 2 · Factor Loadings — Which outcomes cluster together? (n = {n_efa:,})")
+                    st.caption(
+                        "Each cell shows a loading value — a correlation score between that outcome question and "
+                        "that factor, ranging from -1 to +1. A value above 0.7 means that question is a core part "
+                        "of what that factor represents. Between 0.4 and 0.7 is a moderate association. Below 0.3 "
+                        "means that question isn't really measuring this factor. Read down each column to see which "
+                        "outcomes cluster together — that cluster is what gives the factor its meaning, and tells "
+                        "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
+                        "load highly on LV1, you might call it 'Retention & Advocacy')."
+                    )
+                    max_load_pre = loadings_display.abs().max(axis=1)
+                    primary_pre = loadings_display.abs().idxmax(axis=1).copy()
+                    primary_pre[max_load_pre < 0.3] = "Unassigned"
+                    factor_members = {lv: [] for lv in lv_cols}
+                    factor_members["Unassigned"] = []
+                    for outcome, lv in primary_pre.items():
+                        factor_members[lv].append(outcome)
+
+                    card_cols = st.columns(n_factors)
+                    for col_ui, lv in zip(card_cols, lv_cols):
+                        members = factor_members[lv]
+                        items_html = "".join(
+                            f'<p class="card-sub">· {m}</p>' for m in members
+                        ) if members else '<p class="card-sub"><em>No outcomes assigned</em></p>'
+                        with col_ui:
+                            st.markdown(
+                                f'<div class="metric-card-lg">'
+                                f'<p class="card-label">{lv} — unnamed</p>'
+                                f'{items_html}'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                    fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
+                    st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
+
+                    max_load = loadings_display.abs().max(axis=1)
+                    primary = loadings_display.abs().idxmax(axis=1).copy()
+                    primary[max_load < 0.3] = "Unassigned"
+
+                    st.markdown("#### Step 3 · SEM Structural Paths — Which Ways of Working drive each factor?")
+                    wow_choice_sem = st.radio(
+                        "WoW predictors", ["Place (P)", "Individual (I)"],
+                        horizontal=True, key="a1_sem_wow",
+                    )
+                    wow_cols_sem = tuple(WOW_PLACE_COLS if "Place" in wow_choice_sem else WOW_IND_COLS)
+
+                    raw_primary = pd.Series(primary.values, index=OUTCOME_COLS)
+                    factor_map_items = tuple(sorted(
+                        (col, lv) for col, lv in raw_primary.items() if lv != "Unassigned"
+                    ))
+
+                    fit_df_sem = filtered[OUTCOME_COLS + list(wow_cols_sem)].dropna()
+
+                    if len(fit_df_sem) < 100:
+                        st.warning(f"Too few complete cases ({len(fit_df_sem)}) for SEM.")
+                    elif not factor_map_items:
+                        st.warning("No outcomes assigned to factors. Try reducing the number of factors.")
                     else:
-                        # Fit stats
-                        if fit_stats_sem is not None:
-                            try:
-                                fit_row = fit_stats_sem.iloc[0] if hasattr(fit_stats_sem, "iloc") else fit_stats_sem
-                                stat_keys = [k for k in ["CFI", "GFI", "RMSEA", "AIC"] if k in fit_row.index]
-                                fcols = st.columns(max(1, len(stat_keys)))
-                                for fc, sk in zip(fcols, stat_keys):
-                                    val = fit_row[sk]
-                                    with fc:
-                                        st.markdown(
-                                            f'<div class="metric-card">'
-                                            f'<p class="card-label">{sk}</p>'
-                                            f'<p class="card-value">'
-                                            f'{"—" if pd.isna(val) else f"{val:.3f}"}'
-                                            f'</p></div>',
-                                            unsafe_allow_html=True,
-                                        )
-                            except Exception:
-                                pass
-
-                        # Fit stats label
-                        st.markdown("#### Model Fit Statistics — How well does the model fit the data?")
-                        st.caption(
-                            "CFI and GFI > 0.90 indicate acceptable fit (> 0.95 is good). "
-                            "RMSEA < 0.08 is acceptable (< 0.05 is good). "
-                            "AIC is used for comparing models — lower is better."
+                        results_sem, fit_stats_sem, err_sem, model_desc_sem = run_sem(
+                            fit_df_sem, wow_cols_sem, factor_map_items
                         )
+                        st.caption(
+                            "The SEM estimates a path coefficient (β) from each WoW theme to each latent factor, "
+                            "while simultaneously accounting for correlations between WoW themes. A positive β means "
+                            "that WoW theme is associated with higher scores on that factor; negative means lower. "
+                            "Unlike simple correlation, SEM isolates each WoW theme's unique contribution after "
+                            "controlling for all the others."
+                        )
+                        with st.expander("Model specification"):
+                            st.code(model_desc_sem, language="text")
 
-                        # Path coefficient heatmap
-                        paths_sem = results_sem[
-                            (results_sem["op"] == "~") &
-                            (results_sem["rval"].isin(list(wow_cols_sem)))
-                        ].copy()
+                        if err_sem:
+                            st.error(f"SEM could not converge: {err_sem}")
+                        else:
+                            if fit_stats_sem is not None:
+                                try:
+                                    fit_row = fit_stats_sem.iloc[0] if hasattr(fit_stats_sem, "iloc") else fit_stats_sem
+                                    stat_keys = [k for k in ["CFI", "GFI", "RMSEA", "AIC"] if k in fit_row.index]
+                                    fcols = st.columns(max(1, len(stat_keys)))
+                                    for fc, sk in zip(fcols, stat_keys):
+                                        val = fit_row[sk]
+                                        with fc:
+                                            st.markdown(
+                                                f'<div class="metric-card">'
+                                                f'<p class="card-label">{sk}</p>'
+                                                f'<p class="card-value">'
+                                                f'{"—" if pd.isna(val) else f"{val:.3f}"}'
+                                                f'</p></div>',
+                                                unsafe_allow_html=True,
+                                            )
+                                except Exception:
+                                    pass
 
-                        if not paths_sem.empty:
-                            col_to_label = dict(zip(wow_cols_sem, WOW_THEMES))
-                            paths_sem["wow_label"] = paths_sem["rval"].map(col_to_label)
-                            p_col = next(
-                                (c for c in paths_sem.columns if "p-value" in c.lower() or "p_value" in c.lower()),
-                                None,
-                            )
-                            pivot_est = paths_sem.pivot(index="wow_label", columns="lval", values="Estimate")
-
-                            if p_col:
-                                paths_sem[p_col] = pd.to_numeric(paths_sem[p_col], errors="coerce")
-                                pivot_p = paths_sem.pivot(index="wow_label", columns="lval", values=p_col)
-                                text_vals = [
-                                    [
-                                        f"{e:.2f}{'***' if (not pd.isna(p) and p < 0.001) else '**' if (not pd.isna(p) and p < 0.01) else '*' if (not pd.isna(p) and p < 0.05) else ''}"
-                                        for e, p in zip(row_e, row_p)
-                                    ]
-                                    for row_e, row_p in zip(pivot_est.values, pivot_p.values)
-                                ]
-                            else:
-                                text_vals = [[f"{e:.2f}" for e in row] for row in pivot_est.values]
-
-                            fig_paths = go.Figure(go.Heatmap(
-                                z=pivot_est.values,
-                                x=pivot_est.columns.tolist(),
-                                y=pivot_est.index.tolist(),
-                                text=text_vals,
-                                texttemplate="%{text}",
-                                textfont={"size": 9, "color": "#1A2B3C"},
-                                colorscale=HEATMAP_COLORSCALE,
-                                zmid=0,
-                                colorbar=dict(title="β", tickfont=dict(color="#1A2B3C")),
-                                hovertemplate="WoW: %{y}<br>Factor: %{x}<br>β = %{z:.3f}<extra></extra>",
-                            ))
-                            fig_paths.update_layout(
-                                font=dict(family="Inter", color="#1A2B3C"),
-                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                                margin=dict(l=10, r=10, t=40, b=10),
-                                xaxis=dict(tickfont=dict(color="#1A2B3C"), side="top"),
-                                yaxis=dict(tickfont=dict(color="#1A2B3C"), autorange="reversed"),
-                                height=max(400, 28 * len(pivot_est)),
-                            )
-                            st.markdown("#### Path Coefficient Heatmap — WoW themes (rows) × Latent factors (columns)")
+                            st.markdown("#### Model Fit Statistics — How well does the model fit the data?")
                             st.caption(
-                                "Each cell shows the standardised path coefficient (β) from that WoW theme to "
-                                "that factor. Red = positive effect (higher WoW score → higher factor score); "
-                                "blue = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
-                                "*** p<0.001. Cells without stars are not reliably different from zero — treat "
-                                "them with caution. Remember: LV1, LV2 etc. are named by you based on the "
-                                "factor loadings table above."
+                                "CFI and GFI > 0.90 indicate acceptable fit (> 0.95 is good). "
+                                "RMSEA < 0.08 is acceptable (< 0.05 is good). "
+                                "AIC is used for comparing models — lower is better."
                             )
-                            st.plotly_chart(fig_paths, use_container_width=True,
-                                            key=f"a1_sem_paths_{wow_choice_sem}")
+
+                            paths_sem = results_sem[
+                                (results_sem["op"] == "~") &
+                                (results_sem["rval"].isin(list(wow_cols_sem)))
+                            ].copy()
+
+                            if not paths_sem.empty:
+                                col_to_label = dict(zip(wow_cols_sem, WOW_THEMES))
+                                paths_sem["wow_label"] = paths_sem["rval"].map(col_to_label)
+                                p_col = next(
+                                    (c for c in paths_sem.columns if "p-value" in c.lower() or "p_value" in c.lower()),
+                                    None,
+                                )
+                                pivot_est = paths_sem.pivot(index="wow_label", columns="lval", values="Estimate")
+
+                                if p_col:
+                                    paths_sem[p_col] = pd.to_numeric(paths_sem[p_col], errors="coerce")
+                                    pivot_p = paths_sem.pivot(index="wow_label", columns="lval", values=p_col)
+                                    text_vals = [
+                                        [
+                                            f"{e:.2f}{'***' if (not pd.isna(p) and p < 0.001) else '**' if (not pd.isna(p) and p < 0.01) else '*' if (not pd.isna(p) and p < 0.05) else ''}"
+                                            for e, p in zip(row_e, row_p)
+                                        ]
+                                        for row_e, row_p in zip(pivot_est.values, pivot_p.values)
+                                    ]
+                                else:
+                                    text_vals = [[f"{e:.2f}" for e in row] for row in pivot_est.values]
+
+                                fig_paths = go.Figure(go.Heatmap(
+                                    z=pivot_est.values,
+                                    x=pivot_est.columns.tolist(),
+                                    y=pivot_est.index.tolist(),
+                                    text=text_vals,
+                                    texttemplate="%{text}",
+                                    textfont={"size": 9, "color": "#1A2B3C"},
+                                    colorscale=HEATMAP_COLORSCALE,
+                                    zmid=0,
+                                    colorbar=dict(title="β", tickfont=dict(color="#1A2B3C")),
+                                    hovertemplate="WoW: %{y}<br>Factor: %{x}<br>β = %{z:.3f}<extra></extra>",
+                                ))
+                                fig_paths.update_layout(
+                                    font=dict(family="Inter", color="#1A2B3C"),
+                                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                    margin=dict(l=10, r=10, t=40, b=10),
+                                    xaxis=dict(tickfont=dict(color="#1A2B3C"), side="top"),
+                                    yaxis=dict(tickfont=dict(color="#1A2B3C"), autorange="reversed"),
+                                    height=max(400, 28 * len(pivot_est)),
+                                )
+                                st.markdown("#### Path Coefficient Heatmap — WoW themes (rows) × Latent factors (columns)")
+                                st.caption(
+                                    "Each cell shows the standardised path coefficient (β) from that WoW theme to "
+                                    "that factor. Red = positive effect (higher WoW score → higher factor score); "
+                                    "blue = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
+                                    "*** p<0.001. Cells without stars are not reliably different from zero — treat "
+                                    "them with caution. Remember: LV1, LV2 etc. are named by you based on the "
+                                    "factor loadings table above."
+                                )
+                                st.plotly_chart(fig_paths, use_container_width=True,
+                                                key=f"a1_sem_paths_{wow_choice_sem}")
+
+            with a1_adv_model:
+                st.info("Second-Level Modelling coming soon.")
 
 
         # ── A2: Ways of Working × Ways of Working ────────────
