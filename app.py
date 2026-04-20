@@ -853,7 +853,7 @@ with sec_a:
                     "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
                     "load highly on LV1, you might call it 'Retention & Advocacy')."
                 )
-                fig_load = make_heatmap(loadings_display, lv_cols, OUTCOME_LABELS)
+                fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
                 st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
 
                 # Assignment table
