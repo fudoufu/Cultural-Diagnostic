@@ -1009,8 +1009,8 @@ with sec_a:
                             st.markdown("#### Path Coefficient Heatmap — WoW themes (rows) × Latent factors (columns)")
                             st.caption(
                                 "Each cell shows the standardised path coefficient (β) from that WoW theme to "
-                                "that factor. Blue = positive effect (higher WoW score → higher factor score); "
-                                "red = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
+                                "that factor. Red = positive effect (higher WoW score → higher factor score); "
+                                "blue = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
                                 "*** p<0.001. Cells without stars are not reliably different from zero — treat "
                                 "them with caution. Remember: LV1, LV2 etc. are named by you based on the "
                                 "factor loadings table above."
