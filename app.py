@@ -1079,14 +1079,7 @@ with sec_a:
         # ── A4: Ways of Working descriptive table ─────────────
         with a4:
             st.markdown("#### Ways of Working — Average Scores by Directorate")
-            a4_table, a4_chart = st.tabs(["Table", "Bar Chart"])
-            with a4_table:
-                tdf, styler = build_wow_table(filtered, "Q1", directorates)
-                wow_table_cards(n_total, tdf)
-                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                            "**P** = Place average &nbsp;|&nbsp; "
-                            "**Δ** = I − P")
-                st.dataframe(styler, use_container_width=True, height=720)
+            a4_chart, a4_table = st.tabs(["Bar Chart", "Table"])
             with a4_chart:
                 st.markdown(
                     '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1102,15 +1095,18 @@ with sec_a:
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
                 st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a4_bar")
+            with a4_table:
+                tdf, styler = build_wow_table(filtered, "Q1", directorates)
+                wow_table_cards(n_total, tdf)
+                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                            "**P** = Place average &nbsp;|&nbsp; "
+                            "**Δ** = I − P")
+                st.dataframe(styler, use_container_width=True, height=720)
 
         # ── A5: Sentiment Outcomes descriptive table ──────────
         with a5:
             st.markdown("#### Employee Experience — Average Scores by Directorate")
-            a5_table, a5_chart = st.tabs(["Table", "Bar Chart"])
-            with a5_table:
-                tdf, styler = build_outcome_table(filtered, "Q1", directorates)
-                outcome_table_cards(n_total, tdf)
-                st.dataframe(styler, use_container_width=True, height=580)
+            a5_chart, a5_table = st.tabs(["Bar Chart", "Table"])
             with a5_chart:
                 st.markdown(
                     '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1128,6 +1124,10 @@ with sec_a:
                                 unsafe_allow_html=True)
                 st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
                                 key=f"a5_bar_{chart_dir}")
+            with a5_table:
+                tdf, styler = build_outcome_table(filtered, "Q1", directorates)
+                outcome_table_cards(n_total, tdf)
+                st.dataframe(styler, use_container_width=True, height=580)
 
         # ── A6: By Q9 Organisational Level ───────────────────
         with a6:
@@ -1137,14 +1137,7 @@ with sec_a:
                                     len(Q9_ORDER)))
 
             st.markdown("#### Ways of Working — Average Scores by Organisational Level")
-            a6_wow_table, a6_wow_chart = st.tabs(["Table", "Bar Chart"])
-            with a6_wow_table:
-                tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
-                wow_table_cards(n_total, tdf_wow)
-                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                            "**P** = Place average &nbsp;|&nbsp; "
-                            "**Δ** = I − P")
-                st.dataframe(styler_wow, use_container_width=True, height=720)
+            a6_wow_chart, a6_wow_table = st.tabs(["Bar Chart", "Table"])
             with a6_wow_chart:
                 st.markdown(
                     '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1159,14 +1152,17 @@ with sec_a:
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
                 st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a6_wow_bar")
+            with a6_wow_table:
+                tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
+                wow_table_cards(n_total, tdf_wow)
+                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                            "**P** = Place average &nbsp;|&nbsp; "
+                            "**Δ** = I − P")
+                st.dataframe(styler_wow, use_container_width=True, height=720)
 
             st.markdown("---")
             st.markdown("#### Employee Experience — Average Scores by Organisational Level")
-            a6_out_table, a6_out_chart = st.tabs(["Table", "Bar Chart"])
-            with a6_out_table:
-                tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
-                outcome_table_cards(n_total, tdf_out)
-                st.dataframe(styler_out, use_container_width=True, height=580)
+            a6_out_chart, a6_out_table = st.tabs(["Bar Chart", "Table"])
             with a6_out_chart:
                 st.markdown(
                     '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1181,6 +1177,10 @@ with sec_a:
                                 f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                 unsafe_allow_html=True)
                 st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="a6_out_bar")
+            with a6_out_table:
+                tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
+                outcome_table_cards(n_total, tdf_out)
+                st.dataframe(styler_out, use_container_width=True, height=580)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════
@@ -1307,14 +1307,7 @@ with sec_b:
                 st.info("No service area breakdown available for this directorate.")
             else:
                 st.markdown(f"#### Ways of Working — Average Scores by Service Area ({selected_dir})")
-                b4_table, b4_chart = st.tabs(["Table", "Bar Chart"])
-                with b4_table:
-                    tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
-                    wow_table_cards(n_dir, tdf)
-                    st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                                "**P** = Place average &nbsp;|&nbsp; "
-                                "**Δ** = I − P")
-                    st.dataframe(styler, use_container_width=True, height=720)
+                b4_chart, b4_table = st.tabs(["Bar Chart", "Table"])
                 with b4_chart:
                     st.markdown(
                         '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1330,6 +1323,13 @@ with sec_b:
                                     f'<p class="card-value">n = {len(chart_df):,}</p></div>',
                                     unsafe_allow_html=True)
                     st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
+                with b4_table:
+                    tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
+                    wow_table_cards(n_dir, tdf)
+                    st.markdown("**I** = Individual average &nbsp;|&nbsp; "
+                                "**P** = Place average &nbsp;|&nbsp; "
+                                "**Δ** = I − P")
+                    st.dataframe(styler, use_container_width=True, height=720)
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
@@ -1337,11 +1337,7 @@ with sec_b:
                 st.info("No service area breakdown available for this directorate.")
             else:
                 st.markdown(f"#### Employee Experience — Average Scores by Service Area ({selected_dir})")
-                b5_table, b5_chart = st.tabs(["Table", "Bar Chart"])
-                with b5_table:
-                    tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
-                    outcome_table_cards(n_dir, tdf)
-                    st.dataframe(styler, use_container_width=True, height=580)
+                b5_chart, b5_table = st.tabs(["Bar Chart", "Table"])
                 with b5_chart:
                     st.markdown(
                         '<p style="font-size:13px;font-weight:600;color:#5A7080;'
@@ -1359,3 +1355,7 @@ with sec_b:
                                     unsafe_allow_html=True)
                     st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
                                     key=f"b5_bar_{chart_sa}")
+                with b5_table:
+                    tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
+                    outcome_table_cards(n_dir, tdf)
+                    st.dataframe(styler, use_container_width=True, height=580)
