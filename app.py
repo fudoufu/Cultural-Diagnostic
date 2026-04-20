@@ -880,26 +880,11 @@ with sec_a:
                 fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
                 st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
 
-                # Assignment table
+                # SEM
                 max_load = loadings_display.abs().max(axis=1)
                 primary = loadings_display.abs().idxmax(axis=1).copy()
                 primary[max_load < 0.3] = "Unassigned"
-                st.markdown("#### Factor Assignment Table — Which factor does each outcome belong to?")
-                st.caption(
-                    "Each outcome is assigned to whichever factor it loads most strongly on (max |loading| ≥ 0.3). "
-                    "This tells you the membership of each factor. Outcomes marked 'Unassigned' didn't load "
-                    "strongly enough on any factor to be reliably grouped — they may be measuring something distinct."
-                )
-                st.dataframe(
-                    pd.DataFrame({
-                        "Outcome": OUTCOME_LABELS,
-                        "Primary factor": primary.values,
-                        "Max |loading|": max_load.round(3).values,
-                    }),
-                    use_container_width=True, hide_index=True,
-                )
 
-                # SEM
                 st.markdown("#### Step 3 · SEM Structural Paths — Which Ways of Working drive each factor?")
                 wow_choice_sem = st.radio(
                     "WoW predictors", ["Place (P)", "Individual (I)"],
