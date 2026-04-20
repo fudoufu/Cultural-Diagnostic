@@ -565,6 +565,70 @@ def run_sem(fit_df: pd.DataFrame, wow_cols: tuple, factor_map_items: tuple):
         return None, None, str(e), model_desc
 
 
+@st.cache_data(show_spinner="Running backward elimination…")
+def run_backward_elimination(
+    df: pd.DataFrame, outcome_col: str, predictor_cols: tuple, p_threshold: float
+):
+    import statsmodels.api as sm
+
+    fit_df = df[list(predictor_cols) + [outcome_col]].dropna()
+    predictors = list(predictor_cols)
+    y = fit_df[outcome_col].values.astype(float)
+    elim_log = []
+    step = 0
+
+    while predictors:
+        X = sm.add_constant(fit_df[predictors].values.astype(float), has_constant="add")
+        model = sm.OLS(y, X).fit()
+        pvals = pd.Series(model.pvalues[1:], index=predictors)
+        max_p = pvals.max()
+        worst = pvals.idxmax()
+
+        elim_log.append({
+            "Step": step,
+            "Predictors in model": len(predictors),
+            "Adj. R²": round(model.rsquared_adj, 4),
+            "Removed this step": worst if max_p > p_threshold else "—",
+            "p-value of removed": round(float(max_p), 4) if max_p > p_threshold else "—",
+        })
+
+        if max_p <= p_threshold:
+            break
+
+        predictors.remove(worst)
+        step += 1
+
+    if not predictors:
+        return elim_log, None, None, None, None, None, len(fit_df), []
+
+    X_final = fit_df[predictors].values.astype(float)
+    X_const = sm.add_constant(X_final, has_constant="add")
+    final = sm.OLS(y, X_const).fit()
+
+    y_std = y.std()
+    coef_df = pd.DataFrame({
+        "col":       predictors,
+        "β":         final.params[1:],
+        "std_err":   final.bse[1:],
+        "p_value":   final.pvalues[1:],
+        "β_std":     [
+            final.params[i + 1] * fit_df[predictors[i]].std() / y_std
+            for i in range(len(predictors))
+        ],
+    })
+
+    return (
+        elim_log,
+        coef_df,
+        final.fittedvalues.tolist(),
+        final.resid.tolist(),
+        float(final.rsquared_adj),
+        float(final.rsquared),
+        len(fit_df),
+        predictors,
+    )
+
+
 # ── Table builders ────────────────────────────────────────────────────────────────
 def _rag(val, is_delta=False):
     if pd.isna(val):
@@ -1017,7 +1081,180 @@ with sec_a:
                                                 key=f"a1_sem_paths_{wow_choice_sem}")
 
             with a1_adv_model:
-                st.info("Second-Level Modelling coming soon.")
+                st.markdown("#### Second-Level Modelling — Nested Behavioural Model")
+                st.caption(
+                    "Finds the smallest combination of WoW themes that together best predict a chosen "
+                    "employee experience outcome. Starting with all WoW themes as predictors, the model "
+                    "removes them one by one — least significant first — until only those with an "
+                    "independent, statistically reliable relationship remain. The key metric is Adjusted R²: "
+                    "it tells you how much of the variation in that outcome is explained by the retained "
+                    "WoW themes, penalised for adding predictors that don't earn their place."
+                )
+
+                # ── Controls ─────────────────────────────────────────────
+                slm_c1, slm_c2, slm_c3 = st.columns([3, 3, 2])
+                with slm_c1:
+                    sel_outcome_slm = st.selectbox(
+                        "Employee experience outcome", OUTCOME_LABELS, key="slm_outcome"
+                    )
+                with slm_c2:
+                    wow_choice_slm = st.radio(
+                        "WoW predictors", ["Place (P)", "Individual (I)", "Both"],
+                        horizontal=True, key="slm_wow"
+                    )
+                with slm_c3:
+                    p_thresh_slm = st.slider(
+                        "P-value threshold", 0.01, 0.10, 0.05, 0.01, key="slm_pthresh"
+                    )
+
+                outcome_col_slm = OUTCOME_COLS[OUTCOME_LABELS.index(sel_outcome_slm)]
+                if "Place" in wow_choice_slm:
+                    pred_cols_slm = tuple(WOW_PLACE_COLS)
+                    col_to_lbl_slm = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+                elif "Individual" in wow_choice_slm:
+                    pred_cols_slm = tuple(WOW_IND_COLS)
+                    col_to_lbl_slm = dict(zip(WOW_IND_COLS, WOW_THEMES))
+                else:
+                    pred_cols_slm = tuple(WOW_ALL_COLS)
+                    col_to_lbl_slm = dict(zip(WOW_ALL_COLS, WOW_ALL_LABELS))
+
+                elim_log, coef_df, fitted_slm, resid_slm, adj_r2_slm, r2_slm, n_slm, retained_cols = \
+                    run_backward_elimination(filtered, outcome_col_slm, pred_cols_slm, p_thresh_slm)
+
+                if coef_df is None:
+                    st.warning("All predictors were eliminated. Try raising the p-value threshold.")
+                else:
+                    # ── Summary cards ─────────────────────────────────────
+                    mc1, mc2, mc3, mc4 = st.columns(4)
+                    for col_ui, label, value in [
+                        (mc1, "Respondents",          f"n = {n_slm:,}"),
+                        (mc2, "Adjusted R²",           f"{adj_r2_slm:.3f}"),
+                        (mc3, "R²",                    f"{r2_slm:.3f}"),
+                        (mc4, "WoW themes retained",  str(len(retained_cols))),
+                    ]:
+                        with col_ui:
+                            st.markdown(
+                                f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                f'<p class="card-value">{value}</p></div>',
+                                unsafe_allow_html=True,
+                            )
+
+                    # ── Elimination path chart ────────────────────────────
+                    st.markdown("#### Elimination Path — Adjusted R² at each step")
+                    st.caption(
+                        "Each point shows the model's Adjusted R² after removing the least significant "
+                        "predictor at that step. If the line stays flat or rises as predictors are removed, "
+                        "those predictors weren't adding real explanatory value. A meaningful drop signals "
+                        "the model has reached its core — further removal would cost too much."
+                    )
+                    log_df = pd.DataFrame(elim_log)
+                    fig_elim = go.Figure(go.Scatter(
+                        x=log_df["Predictors in model"],
+                        y=log_df["Adj. R²"],
+                        mode="lines+markers",
+                        line=dict(color=PRIMARY, width=2),
+                        marker=dict(color=PRIMARY, size=8),
+                        hovertemplate=(
+                            "Predictors: %{x}<br>Adj. R² = %{y:.4f}"
+                            "<extra></extra>"
+                        ),
+                    ))
+                    fig_elim.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        xaxis=dict(
+                            title="Number of predictors in model",
+                            autorange="reversed",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        yaxis=dict(
+                            title="Adjusted R²",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        height=320,
+                    )
+                    st.plotly_chart(fig_elim, use_container_width=True, key=f"slm_elim_{sel_outcome_slm}_{wow_choice_slm}")
+
+                    # ── Coefficient chart ─────────────────────────────────
+                    st.markdown("#### Final Model — Standardised Coefficients (β)")
+                    st.caption(
+                        "Each bar shows the standardised path coefficient for a retained WoW theme — how "
+                        "much the outcome changes (in standard deviation units) for a 1-SD increase in that "
+                        "WoW theme's rating, after controlling for all other retained themes. Longer bar = "
+                        "stronger independent effect. Red = positive (more of this WoW → better outcome); "
+                        "blue = negative."
+                    )
+                    coef_df["label"] = coef_df["col"].map(col_to_lbl_slm)
+                    coef_df["sig"] = coef_df["p_value"].apply(
+                        lambda p: "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+                    )
+                    coef_df["text"] = coef_df.apply(lambda r: f"{r['β_std']:.2f}{r['sig']}", axis=1)
+                    coef_sorted = coef_df.reindex(coef_df["β_std"].abs().sort_values().index)
+
+                    fig_coef = go.Figure(go.Bar(
+                        x=coef_sorted["β_std"],
+                        y=coef_sorted["label"],
+                        orientation="h",
+                        text=coef_sorted["text"],
+                        textposition="outside",
+                        textfont=dict(color="#1A2B3C", size=11),
+                        marker_color=[PRIMARY if v >= 0 else "#2E7096" for v in coef_sorted["β_std"]],
+                        hovertemplate="<b>%{y}</b><br>β (std) = %{x:.3f}<extra></extra>",
+                    ))
+                    fig_coef.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=80, t=10, b=10),
+                        xaxis=dict(
+                            title="Standardised β", zeroline=True, zerolinecolor="#D6E0EA",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        yaxis=dict(tickfont=dict(color="#1A2B3C")),
+                        height=max(300, 36 * len(coef_sorted)),
+                    )
+                    st.plotly_chart(fig_coef, use_container_width=True, key=f"slm_coef_{sel_outcome_slm}_{wow_choice_slm}")
+
+                    # ── Residual plot ─────────────────────────────────────
+                    st.markdown("#### Residual Plot — Model Diagnostic")
+                    st.caption(
+                        "Each dot is one respondent. The X axis is what the model predicted for them; "
+                        "the Y axis is how far off it was (actual minus predicted). A well-specified model "
+                        "shows dots randomly scattered around the zero line with no pattern. A funnel shape "
+                        "(spread widening left to right) suggests the model is less precise at higher scores. "
+                        "A curve suggests the relationship isn't fully linear. Some imperfection is normal "
+                        "with survey data."
+                    )
+                    fig_resid = go.Figure(go.Scatter(
+                        x=fitted_slm, y=resid_slm,
+                        mode="markers",
+                        marker=dict(color=PRIMARY, opacity=0.35, size=5),
+                        hovertemplate="Predicted: %{x:.2f}<br>Residual: %{y:.2f}<extra></extra>",
+                    ))
+                    fig_resid.add_hline(y=0, line_dash="dash", line_color="#C0392B", line_width=1)
+                    fig_resid.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=10, b=10),
+                        xaxis=dict(
+                            title="Predicted value",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        yaxis=dict(
+                            title="Residual (actual − predicted)",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        height=360,
+                    )
+                    st.plotly_chart(fig_resid, use_container_width=True, key=f"slm_resid_{sel_outcome_slm}_{wow_choice_slm}")
+
+                    # ── Elimination log ───────────────────────────────────
+                    with st.expander("Elimination log"):
+                        st.caption(
+                            "The full step-by-step record of which predictor was removed at each iteration "
+                            "and what the Adjusted R² was after that removal. Step 0 is the full model."
+                        )
+                        st.dataframe(log_df, use_container_width=True, hide_index=True)
 
 
         # ── A2: Ways of Working × Ways of Working ────────────
