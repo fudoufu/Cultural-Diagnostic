@@ -853,6 +853,30 @@ with sec_a:
                     "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
                     "load highly on LV1, you might call it 'Retention & Advocacy')."
                 )
+                # Summary cards — one per factor showing its member outcomes
+                max_load_pre = loadings_display.abs().max(axis=1)
+                primary_pre = loadings_display.abs().idxmax(axis=1).copy()
+                primary_pre[max_load_pre < 0.3] = "Unassigned"
+                factor_members = {lv: [] for lv in lv_cols}
+                factor_members["Unassigned"] = []
+                for outcome, lv in primary_pre.items():
+                    factor_members[lv].append(outcome)
+
+                card_cols = st.columns(n_factors)
+                for col_ui, lv in zip(card_cols, lv_cols):
+                    members = factor_members[lv]
+                    items_html = "".join(
+                        f'<p class="card-sub">· {m}</p>' for m in members
+                    ) if members else '<p class="card-sub"><em>No outcomes assigned</em></p>'
+                    with col_ui:
+                        st.markdown(
+                            f'<div class="metric-card">'
+                            f'<p class="card-label">{lv} — unnamed</p>'
+                            f'{items_html}'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
                 fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
                 st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
 
