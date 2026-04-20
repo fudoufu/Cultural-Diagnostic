@@ -781,11 +781,14 @@ with sec_a:
 
                 st.markdown("#### Step 1 · Scree Plot — How many hidden factors exist in your outcome data?")
                 st.caption(
-                    "Each point is one potential factor. The Y-axis shows its eigenvalue — roughly, how much "
-                    "shared variation it captures. Factors above the dashed Kaiser line (λ = 1) explain more "
-                    "than a single variable on its own and are worth keeping. Look for the 'elbow' where the "
-                    "curve flattens — factors to the left of that point are the meaningful ones. Use the slider "
-                    "below to set how many factors to extract."
+                    "This graph helps you decide how many distinct themes exist within your employee experience "
+                    "questions. Each point is one potential theme (factor), and its height shows how much shared "
+                    "information it captures across your outcome questions. The dashed line is a cut-off rule: "
+                    "factors above it are capturing more than a single question's worth of information on their "
+                    "own, so they're worth keeping. Look for where the curve suddenly goes from steep to flat — "
+                    "that's the point where additional factors stop adding meaningful new information. The factors "
+                    "to the left of that bend are your real underlying themes. Use the slider below to set how "
+                    "many to extract."
                 )
                 fig_scree = go.Figure([go.Scatter(
                     x=list(range(1, len(eigenvalues) + 1)), y=eigenvalues,
