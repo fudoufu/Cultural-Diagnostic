@@ -1018,25 +1018,6 @@ with sec_a:
                             st.plotly_chart(fig_paths, use_container_width=True,
                                             key=f"a1_sem_paths_{wow_choice_sem}")
 
-                            # Significant paths table
-                            if p_col:
-                                sig_sem = paths_sem[paths_sem[p_col] < 0.05][
-                                    ["wow_label", "lval", "Estimate", p_col]
-                                ].copy()
-                                sig_sem.columns = ["WoW Theme", "Factor", "β", "p-value"]
-                                sig_sem = sig_sem.sort_values("β", key=abs, ascending=False).reset_index(drop=True)
-                                sig_sem["β"] = pd.to_numeric(sig_sem["β"], errors="coerce").round(3)
-                                sig_sem["p-value"] = pd.to_numeric(sig_sem["p-value"], errors="coerce").round(4)
-                                if not sig_sem.empty:
-                                    st.markdown("#### Significant Paths — The WoW themes that reliably predict each factor")
-                                    st.caption(
-                                        "Only paths where p < 0.05 are shown here — these are the WoW themes "
-                                        "with a statistically reliable relationship to each factor, sorted by "
-                                        "the size of their effect (largest β first). This is your headline "
-                                        "finding: the specific ways of working that most strongly and "
-                                        "independently predict employee experience outcomes."
-                                    )
-                                    st.dataframe(sig_sem, use_container_width=True, hide_index=True)
 
         # ── A2: Ways of Working × Ways of Working ────────────
         with a2:
