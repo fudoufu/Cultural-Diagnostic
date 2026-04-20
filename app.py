@@ -779,7 +779,14 @@ with sec_a:
                 eigenvalues = sorted(np.linalg.eigvalsh(corr_mat).tolist(), reverse=True)
                 n_kaiser = max(2, sum(1 for e in eigenvalues if e > 1))
 
-                st.markdown("**Step 1 · Scree plot** — look for the 'elbow' to decide how many factors to extract")
+                st.markdown("#### Step 1 · Scree Plot — How many hidden factors exist in your outcome data?")
+                st.caption(
+                    "Each point is one potential factor. The Y-axis shows its eigenvalue — roughly, how much "
+                    "shared variation it captures. Factors above the dashed Kaiser line (λ = 1) explain more "
+                    "than a single variable on its own and are worth keeping. Look for the 'elbow' where the "
+                    "curve flattens — factors to the left of that point are the meaningful ones. Use the slider "
+                    "below to set how many factors to extract."
+                )
                 fig_scree = go.Figure([go.Scatter(
                     x=list(range(1, len(eigenvalues) + 1)), y=eigenvalues,
                     mode="lines+markers",
@@ -816,8 +823,15 @@ with sec_a:
                 loadings_display.index = OUTCOME_LABELS
                 lv_cols = [f"LV{i+1}" for i in range(n_factors)]
 
-                st.markdown(f"**Step 2 · Factor loadings** (varimax rotation, n = {n_efa:,} complete responses)")
-                st.caption("Values closer to ±1 indicate a strong association between that outcome and the factor.")
+                st.markdown(f"#### Step 2 · Factor Loadings — Which outcomes cluster together? (n = {n_efa:,})")
+                st.caption(
+                    "This heatmap shows how strongly each employee experience outcome (rows) relates to each "
+                    "latent factor (columns LV1, LV2…). Dark blue = strong positive association; dark red = "
+                    "strong negative. Each outcome will typically load highly on one factor and weakly on others. "
+                    "Outcomes that load together on the same factor are measuring the same underlying theme — "
+                    "that's what gives the factor its meaning. Read down each column to see what a factor "
+                    "represents, then give it a name based on the outcomes that belong to it."
+                )
                 fig_load = make_heatmap(loadings_display, lv_cols, OUTCOME_LABELS)
                 st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
 
@@ -825,6 +839,12 @@ with sec_a:
                 max_load = loadings_display.abs().max(axis=1)
                 primary = loadings_display.abs().idxmax(axis=1).copy()
                 primary[max_load < 0.3] = "Unassigned"
+                st.markdown("#### Factor Assignment Table — Which factor does each outcome belong to?")
+                st.caption(
+                    "Each outcome is assigned to whichever factor it loads most strongly on (max |loading| ≥ 0.3). "
+                    "This tells you the membership of each factor. Outcomes marked 'Unassigned' didn't load "
+                    "strongly enough on any factor to be reliably grouped — they may be measuring something distinct."
+                )
                 st.dataframe(
                     pd.DataFrame({
                         "Outcome": OUTCOME_LABELS,
@@ -835,7 +855,7 @@ with sec_a:
                 )
 
                 # SEM
-                st.markdown("**Step 3 · Structural paths** — which WoW themes predict each latent factor?")
+                st.markdown("#### Step 3 · SEM Structural Paths — Which Ways of Working drive each factor?")
                 wow_choice_sem = st.radio(
                     "WoW predictors", ["Place (P)", "Individual (I)"],
                     horizontal=True, key="a1_sem_wow",
@@ -856,6 +876,13 @@ with sec_a:
                 else:
                     results_sem, fit_stats_sem, err_sem, model_desc_sem = run_sem(
                         fit_df_sem, wow_cols_sem, factor_map_items
+                    )
+                    st.caption(
+                        "The SEM estimates a path coefficient (β) from each WoW theme to each latent factor, "
+                        "while simultaneously accounting for correlations between WoW themes. A positive β means "
+                        "that WoW theme is associated with higher scores on that factor; negative means lower. "
+                        "Unlike simple correlation, SEM isolates each WoW theme's unique contribution after "
+                        "controlling for all the others."
                     )
                     with st.expander("Model specification"):
                         st.code(model_desc_sem, language="text")
@@ -882,6 +909,14 @@ with sec_a:
                                         )
                             except Exception:
                                 pass
+
+                        # Fit stats label
+                        st.markdown("#### Model Fit Statistics — How well does the model fit the data?")
+                        st.caption(
+                            "CFI and GFI > 0.90 indicate acceptable fit (> 0.95 is good). "
+                            "RMSEA < 0.08 is acceptable (< 0.05 is good). "
+                            "AIC is used for comparing models — lower is better."
+                        )
 
                         # Path coefficient heatmap
                         paths_sem = results_sem[
@@ -930,7 +965,15 @@ with sec_a:
                                 yaxis=dict(tickfont=dict(color="#1A2B3C"), autorange="reversed"),
                                 height=max(400, 28 * len(pivot_est)),
                             )
-                            st.markdown("Path coefficients (β) · \* p<0.05 · \*\* p<0.01 · \*\*\* p<0.001")
+                            st.markdown("#### Path Coefficient Heatmap — WoW themes (rows) × Latent factors (columns)")
+                            st.caption(
+                                "Each cell shows the standardised path coefficient (β) from that WoW theme to "
+                                "that factor. Blue = positive effect (higher WoW score → higher factor score); "
+                                "red = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
+                                "*** p<0.001. Cells without stars are not reliably different from zero — treat "
+                                "them with caution. Remember: LV1, LV2 etc. are named by you based on the "
+                                "factor loadings table above."
+                            )
                             st.plotly_chart(fig_paths, use_container_width=True,
                                             key=f"a1_sem_paths_{wow_choice_sem}")
 
@@ -944,7 +987,14 @@ with sec_a:
                                 sig_sem["β"] = pd.to_numeric(sig_sem["β"], errors="coerce").round(3)
                                 sig_sem["p-value"] = pd.to_numeric(sig_sem["p-value"], errors="coerce").round(4)
                                 if not sig_sem.empty:
-                                    st.markdown("**Significant paths (p < 0.05):**")
+                                    st.markdown("#### Significant Paths — The WoW themes that reliably predict each factor")
+                                    st.caption(
+                                        "Only paths where p < 0.05 are shown here — these are the WoW themes "
+                                        "with a statistically reliable relationship to each factor, sorted by "
+                                        "the size of their effect (largest β first). This is your headline "
+                                        "finding: the specific ways of working that most strongly and "
+                                        "independently predict employee experience outcomes."
+                                    )
                                     st.dataframe(sig_sem, use_container_width=True, hide_index=True)
 
         # ── A2: Ways of Working × Ways of Working ────────────
