@@ -1216,34 +1216,43 @@ with sec_a:
                     st.plotly_chart(fig_coef, use_container_width=True, key=f"slm_coef_{sel_outcome_slm}_{wow_choice_slm}")
 
                     # ── Residual plot ─────────────────────────────────────
-                    st.markdown("#### Residual Plot — Model Diagnostic")
+                    st.markdown("#### Model Accuracy — Predicted Scores by Actual Score")
                     st.caption(
-                        "Each dot is one respondent. The X axis is what the model predicted for them; "
-                        "the Y axis is how far off it was (actual minus predicted). A well-specified model "
-                        "shows dots randomly scattered around the zero line with no pattern. A funnel shape "
-                        "(spread widening left to right) suggests the model is less precise at higher scores. "
-                        "A curve suggests the relationship isn't fully linear. Some imperfection is normal "
-                        "with survey data."
+                        "Each column groups respondents who gave the same actual score (1–5). The box "
+                        "shows the spread of what the model predicted for those people. A good model "
+                        "shows boxes rising steadily from left to right — meaning higher actual scores "
+                        "tend to get higher predictions. Boxes that overlap a lot between adjacent scores "
+                        "show where the model struggles to distinguish between those response groups."
                     )
-                    fig_resid = go.Figure(go.Scatter(
-                        x=fitted_slm, y=resid_slm,
-                        mode="markers",
-                        marker=dict(color=PRIMARY, opacity=0.35, size=5),
-                        hovertemplate="Predicted: %{x:.2f}<br>Residual: %{y:.2f}<extra></extra>",
-                    ))
-                    fig_resid.add_hline(y=0, line_dash="dash", line_color="#C0392B", line_width=1)
+                    fit_df_plot = filtered[list(pred_cols_slm) + [outcome_col_slm]].dropna().copy()
+                    fit_df_plot["predicted"] = fitted_slm
+                    fit_df_plot["actual"] = fit_df_plot[outcome_col_slm].astype(int)
+
+                    fig_resid = go.Figure()
+                    for score in sorted(fit_df_plot["actual"].unique()):
+                        preds = fit_df_plot.loc[fit_df_plot["actual"] == score, "predicted"].tolist()
+                        fig_resid.add_trace(go.Box(
+                            y=preds,
+                            name=str(score),
+                            marker_color=PRIMARY,
+                            line_color=PRIMARY,
+                            fillcolor="rgba(15,76,107,0.15)",
+                            boxmean=True,
+                            hovertemplate=f"Actual score: {score}<br>Predicted: %{{y:.2f}}<extra></extra>",
+                        ))
                     fig_resid.update_layout(
                         font=dict(family="Inter", color="#1A2B3C"),
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=10, b=10),
                         xaxis=dict(
-                            title="Predicted value",
+                            title="Actual score given by respondent",
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         yaxis=dict(
-                            title="Residual (actual − predicted)",
+                            title="Model's predicted score",
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
+                        showlegend=False,
                         height=360,
                     )
                     st.plotly_chart(fig_resid, use_container_width=True, key=f"slm_resid_{sel_outcome_slm}_{wow_choice_slm}")
