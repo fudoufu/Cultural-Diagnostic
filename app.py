@@ -901,9 +901,11 @@ with sec_a:
                         font=dict(family="Inter", color="#1A2B3C"),
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=20, b=10),
-                        xaxis=dict(title="Factor", tickvals=list(range(1, len(eigenvalues) + 1)),
+                        xaxis=dict(title=dict(text="Factor", font=dict(color="#1A2B3C")),
+                                   tickvals=list(range(1, len(eigenvalues) + 1)),
                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
-                        yaxis=dict(title="Eigenvalue", tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        yaxis=dict(title=dict(text="Eigenvalue", font=dict(color="#1A2B3C")),
+                                   tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
                         height=300,
                     )
                     st.plotly_chart(fig_scree, use_container_width=True, key="a1_sem_scree")
@@ -1164,12 +1166,12 @@ with sec_a:
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=10, b=10),
                         xaxis=dict(
-                            title="Number of predictors in model",
+                            title=dict(text="Number of predictors in model", font=dict(color="#1A2B3C")),
                             autorange="reversed",
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         yaxis=dict(
-                            title="Adjusted R²",
+                            title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         height=320,
@@ -1207,7 +1209,8 @@ with sec_a:
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=80, t=10, b=10),
                         xaxis=dict(
-                            title="Standardised β", zeroline=True, zerolinecolor="#D6E0EA",
+                            title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                            zeroline=True, zerolinecolor="#D6E0EA",
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         yaxis=dict(tickfont=dict(color="#1A2B3C")),
@@ -1245,11 +1248,11 @@ with sec_a:
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=10, b=10),
                         xaxis=dict(
-                            title="Actual score given by respondent",
+                            title=dict(text="Actual score given by respondent", font=dict(color="#1A2B3C")),
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         yaxis=dict(
-                            title="Model's predicted score",
+                            title=dict(text="Model's predicted score", font=dict(color="#1A2B3C")),
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         showlegend=False,
