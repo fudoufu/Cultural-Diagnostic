@@ -899,10 +899,11 @@ with sec_a:
                             pivot_est = paths_sem.pivot(index="wow_label", columns="lval", values="Estimate")
 
                             if p_col:
+                                paths_sem[p_col] = pd.to_numeric(paths_sem[p_col], errors="coerce")
                                 pivot_p = paths_sem.pivot(index="wow_label", columns="lval", values=p_col)
                                 text_vals = [
                                     [
-                                        f"{e:.2f}{'***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else ''}"
+                                        f"{e:.2f}{'***' if (not pd.isna(p) and p < 0.001) else '**' if (not pd.isna(p) and p < 0.01) else '*' if (not pd.isna(p) and p < 0.05) else ''}"
                                         for e, p in zip(row_e, row_p)
                                     ]
                                     for row_e, row_p in zip(pivot_est.values, pivot_p.values)
@@ -940,8 +941,8 @@ with sec_a:
                                 ].copy()
                                 sig_sem.columns = ["WoW Theme", "Factor", "β", "p-value"]
                                 sig_sem = sig_sem.sort_values("β", key=abs, ascending=False).reset_index(drop=True)
-                                sig_sem["β"] = sig_sem["β"].round(3)
-                                sig_sem["p-value"] = sig_sem["p-value"].round(4)
+                                sig_sem["β"] = pd.to_numeric(sig_sem["β"], errors="coerce").round(3)
+                                sig_sem["p-value"] = pd.to_numeric(sig_sem["p-value"], errors="coerce").round(4)
                                 if not sig_sem.empty:
                                     st.markdown("**Significant paths (p < 0.05):**")
                                     st.dataframe(sig_sem, use_container_width=True, hide_index=True)
