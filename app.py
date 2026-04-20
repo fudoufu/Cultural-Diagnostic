@@ -449,6 +449,21 @@ def render_heatmap_cards(n: int, matrix: pd.DataFrame):
             unsafe_allow_html=True)
 
 
+def render_wow_variance_card(matrix: pd.DataFrame, top_n: int = 5):
+    """Show top N WoW themes by collective R² (sum across all outcome columns)."""
+    r2_sum = (matrix ** 2).sum(axis=1).sort_values(ascending=False)
+    rows_html = "".join(
+        f'<p class="card-sub">{wow}</p><p class="card-value">collective R² = {val:.3f}</p>'
+        for wow, val in r2_sum.head(top_n).items()
+    )
+    st.markdown(
+        f'<div class="metric-card"><p class="card-label">'
+        f'Top {top_n} WoW themes explaining most variation in employee experience</p>'
+        f'{rows_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_summary_cards(n: int, top3_high: list, top3_low: list):
     """top3_high / top3_low are lists of (label, value_str) tuples."""
     cols = st.columns(3)
@@ -673,6 +688,7 @@ with sec_a:
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
+                render_wow_variance_card(mat)
                 st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_place")
                 st.markdown("---")
@@ -687,6 +703,7 @@ with sec_a:
                 mat.index   = WOW_THEMES
                 mat.columns = OUTCOME_LABELS
                 render_heatmap_cards(n_total, mat)
+                render_wow_variance_card(mat)
                 st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                 use_container_width=True, key="a1_ind")
                 st.markdown("---")
@@ -891,6 +908,7 @@ with sec_b:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
+                    render_wow_variance_card(mat)
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_place")
                     st.markdown("---")
@@ -905,6 +923,7 @@ with sec_b:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat)
+                    render_wow_variance_card(mat)
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
                                     use_container_width=True, key="b1_ind")
                     st.markdown("---")
