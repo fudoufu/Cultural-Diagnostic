@@ -98,6 +98,19 @@ h4 {
     color: #3A4D5C !important;
     font-size: 13px !important;
 }
+[data-testid="stSlider"] label, [data-testid="stSlider"] p,
+[data-testid="stSlider"] [data-testid="stMarkdownContainer"] p {
+    color: #1A2B3C !important;
+    font-weight: 500 !important;
+}
+[data-testid="stSlider"] [data-testid="stTickBarMin"],
+[data-testid="stSlider"] [data-testid="stTickBarMax"] {
+    color: #1A2B3C !important;
+}
+details summary, [data-testid="stExpander"] summary p {
+    color: #1A2B3C !important;
+    font-weight: 500 !important;
+}
 .landing-hero {
     min-height: 62vh;
     display: flex;
