@@ -493,6 +493,31 @@ def render_wow_variance_card(matrix: pd.DataFrame, top_n: int = 5):
     )
 
 
+def render_trend_slope_card(df: pd.DataFrame, wow_cols: list, wow_labels: list,
+                            outcome_col: str, top_n: int = 3):
+    """Show top N WoW themes by absolute regression slope against the chosen outcome."""
+    slopes = []
+    for col, label in zip(wow_cols, wow_labels):
+        valid = df[[col, outcome_col]].dropna()
+        if len(valid) < 3:
+            continue
+        slope = np.polyfit(valid[col].values.astype(float),
+                           valid[outcome_col].values.astype(float), 1)[0]
+        slopes.append((label, slope))
+    slopes.sort(key=lambda x: abs(x[1]), reverse=True)
+    rows_html = "".join(
+        f'<p class="card-sub">{lbl}</p>'
+        f'<p class="card-value">slope = {"+" if s > 0 else ""}{s:.3f}</p>'
+        for lbl, s in slopes[:top_n]
+    )
+    st.markdown(
+        f'<div class="metric-card"><p class="card-label">'
+        f'Top {top_n} steepest trend lines (largest absolute slope)</p>'
+        f'{rows_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_summary_cards(n: int, top3_high: list, top3_low: list):
     """top3_high / top3_low are lists of (label, value_str) tuples."""
     cols = st.columns(3)
@@ -834,6 +859,7 @@ with sec_a:
                 st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
                 sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_place_out")
                 out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                render_trend_slope_card(filtered, WOW_PLACE_COLS, WOW_THEMES, out_col)
                 st.plotly_chart(make_trend_chart(filtered, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
                                 use_container_width=True, key=f"a1_place_trend_{sel_out}")
             with a1_ind:
@@ -849,6 +875,7 @@ with sec_a:
                 st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
                 sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_ind_out")
                 out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                render_trend_slope_card(filtered, WOW_IND_COLS, WOW_THEMES, out_col)
                 st.plotly_chart(make_trend_chart(filtered, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
                                 use_container_width=True, key=f"a1_ind_trend_{sel_out}")
 
@@ -1490,6 +1517,7 @@ with sec_b:
                     st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
                     sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_place_out")
                     out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                    render_trend_slope_card(dir_df, WOW_PLACE_COLS, WOW_THEMES, out_col)
                     st.plotly_chart(make_trend_chart(dir_df, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
                                     use_container_width=True, key=f"b1_place_trend_{sel_out}")
                 with b1_ind:
@@ -1505,6 +1533,7 @@ with sec_b:
                     st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
                     sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_ind_out")
                     out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
+                    render_trend_slope_card(dir_df, WOW_IND_COLS, WOW_THEMES, out_col)
                     st.plotly_chart(make_trend_chart(dir_df, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
                                     use_container_width=True, key=f"b1_ind_trend_{sel_out}")
 
