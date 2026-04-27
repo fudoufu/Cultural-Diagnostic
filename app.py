@@ -1,4 +1,6 @@
 import io
+import re
+from typing import Optional
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -45,6 +47,28 @@ html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: 'Inter', sa
     background-color: #5A9BB5 !important;
     border-color: #5A9BB5 !important;
     color: #FFFFFF !important;
+}
+/* Correlational Heatmaps tab (3rd at level 3) — grey to signal supporting analysis */
+.stTabs .stTabs .stTabs [data-baseweb="tab"]:nth-child(3) {
+    background-color: #DDE3EA !important;
+    color: #5A7080 !important;
+    border-color: #C8D0DA !important;
+}
+.stTabs .stTabs .stTabs [data-baseweb="tab"]:nth-child(3)[aria-selected="true"] {
+    background-color: #A8B4BF !important;
+    border-color: #8C9AAA !important;
+    color: #1A2B3C !important;
+}
+/* Reset: undo grey for 3rd tab at level 4+ (e.g. Outcomes × Outcomes inside heatmaps) */
+.stTabs .stTabs .stTabs .stTabs [data-baseweb="tab"]:nth-child(3) {
+    background-color: #FFFFFF !important;
+    color: #1A2B3C !important;
+    border-color: #D6E0EA !important;
+}
+.stTabs .stTabs .stTabs .stTabs [data-baseweb="tab"]:nth-child(3)[aria-selected="true"] {
+    background-color: #8DC0D4 !important;
+    border-color: #8DC0D4 !important;
+    color: #1A2B3C !important;
 }
 /* Level 4 tabs (Place / Individual) */
 .stTabs .stTabs .stTabs .stTabs [aria-selected="true"] {
@@ -121,6 +145,10 @@ details summary, [data-testid="stExpander"] summary p {
     color: #1A2B3C !important;
     font-weight: 500 !important;
 }
+details[open] summary, details[open] summary p,
+details[open] [data-testid="stExpander"] summary p {
+    color: #FFFFFF !important;
+}
 .landing-hero {
     min-height: 62vh;
     display: flex;
@@ -136,7 +164,7 @@ details summary, [data-testid="stExpander"] summary p {
 # ── Constants ─────────────────────────────────────────────────────────────────────
 WOW_THEMES = [
     "Collective Responsibility", "Individual Accountability",
-    "Status Orientation", "Autonomy over Decisions",
+    "Top-down Decision-making", "Autonomy over Decisions",
     "Prioritise People's Well-Being", "Prioritise Results",
     "Challenge Decisions", "Preserve Cohesion",
     "Follow Procedures", "Adapt to Situation",
@@ -149,10 +177,10 @@ WOW_THEMES = [
 ]
 
 OUTCOME_LABELS = [
-    "Intent to stay", "Good place to work", "Feeling valued", "Pride",
-    "Sense of impact", "Empowerment", "Workload manageability", "Role clarity",
+    "Intent to stay", "Good place to work", "Feeling valued", "Sense of pride",
+    "Sense of impact", "Empowered to be Effective", "Workload manageability", "Role clarity",
     "Voice heard", "Psychological safety", "Breaking silos",
-    "Opportunity for contribution", "LM time", "LM effectiveness", "Employer rating",
+    "Opportunity for contribution", "Meaningful LM time", "LM effectiveness", "Employer rating",
 ]
 
 LIKERT_MAP = {
@@ -179,6 +207,42 @@ OUTCOME_COLS   = [f"Q{i}" for i in range(55, 70)]   # Q55–Q69
 WOW_ALL_LABELS = [f"P · {t}" for t in WOW_THEMES] + [f"I · {t}" for t in WOW_THEMES]
 
 Q9_ORDER = ["My directorate", "My service", "My immediate team", "Other"]
+
+HEADCOUNT = {
+    "Adult Services and Housing": 589,
+    "Chief Exec's Office (including Executive and Service Directors)": 53,
+    "Children, Families and Education": 1475,
+    "Community, Place and Economy": 1916,
+    "Resources, Strategy and Transformation": 533,
+    "Finance and Procurement": 280,
+}
+TOTAL_HEADCOUNT = 4846
+
+SERVICE_AREA_HEADCOUNT = {
+    # Adult Services & Housing
+    "Adults Commissioning":         58,
+    "Adults Housing General Fund":  120,   # = Housing
+    # CEO Office & Elections
+    "CEO and Electoral Services":   53,    # Electoral Services (33) + Chief Executives Office & Directors (20)
+    # Children, Families & Education
+    "Children and Families":        923,
+    "Commissioning & Performance":  173,
+    "Education":                    379,
+    # Community, Place & Economy
+    "Economic Development, Skills & Climate": 139,
+    "HRA & Property":               178,
+    "Infrastructure and Transport": 499,
+    "Partnerships, Localities and Culture": 219,
+    "Planning":                     154,
+    "Regulatory and Operations":    660,
+    # Resources, Strategy & Transformation
+    "Democratic & Governance":      22,
+    "HR and OD":                    118,   # = HR & Organisational Development
+    "ICT Transformation":           151,   # = ICT Services
+    "Legal":                        34,
+    "Public Health":                83,
+    "Strategy, Performance and Communications": 125,
+}
 
 # Colours
 PRIMARY  = "#0F4C6B"
@@ -212,6 +276,19 @@ def load_data(file_bytes: bytes) -> pd.DataFrame:
             "Not Answered",
         ),
         axis=1,
+    )
+
+    # Split service_area into svc_group (before " - " / " – ") and svc_name (after)
+    def _split_svc(val):
+        if not val or val == "Not Answered":
+            return "Not Answered", None
+        parts = re.split(r" [–\-] ", val, maxsplit=1)
+        if len(parts) == 2:
+            return parts[0].strip(), parts[1].strip()
+        return val, None
+
+    df[["svc_group", "svc_name"]] = df["service_area"].apply(
+        lambda v: pd.Series(_split_svc(v))
     )
 
     # Convert Likert columns Q11–Q68 to numeric
@@ -389,57 +466,8 @@ def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) ->
     return fig
 
 
-def make_trend_chart(df: pd.DataFrame, wow_cols: list, wow_labels: list,
-                     outcome_col: str, outcome_label: str) -> go.Figure:
-    """Trend lines (linear regression) for each WoW theme vs a selected outcome."""
-    fig = go.Figure()
-    for col, label, colour in zip(wow_cols, wow_labels, TREND_COLOURS):
-        valid = df[[col, outcome_col]].dropna()
-        if len(valid) < 3:
-            continue
-        x = valid[col].values.astype(float)
-        y = valid[outcome_col].values.astype(float)
-        slope, intercept = np.polyfit(x, y, 1)
-        x_line = np.array([1.0, 5.0])
-        y_line = slope * x_line + intercept
-        fig.add_trace(go.Scatter(
-            x=x_line, y=y_line,
-            mode="lines",
-            name=label,
-            line=dict(color=colour, width=2),
-            hovertemplate=f"{label}<br>WoW score: %{{x:.0f}}<br>{outcome_label}: %{{y:.2f}}<extra></extra>",
-        ))
-    fig.update_layout(
-        font=dict(family="Inter", color="#1A2B3C"),
-        paper_bgcolor="#F7F9FC",
-        plot_bgcolor="#F7F9FC",
-        margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(
-            title=dict(text="WoW Rating (1–5)", font=dict(color="#1A2B3C", size=12)),
-            tickvals=[1, 2, 3, 4, 5],
-            range=[0.8, 5.2],
-            tickfont=dict(color="#1A2B3C"),
-            gridcolor="#E8EEF2",
-        ),
-        yaxis=dict(
-            title=dict(text=outcome_label, font=dict(color="#1A2B3C", size=12)),
-            tickvals=[1, 2, 3, 4, 5],
-            range=[0.8, 5.2],
-            tickfont=dict(color="#1A2B3C"),
-            gridcolor="#E8EEF2",
-        ),
-        legend=dict(
-            font=dict(color="#1A2B3C", size=11),
-            orientation="v",
-            x=1.01, y=1,
-            xanchor="left",
-        ),
-        height=480,
-    )
-    return fig
 
-
-def render_heatmap_cards(n: int, matrix: pd.DataFrame):
+def render_heatmap_cards(n: int, matrix: pd.DataFrame, headcount: Optional[int] = None):
     flat = matrix.stack().dropna()
     # Deduplicate symmetric pairs: (A, B) and (B, A) are the same correlation
     seen: set = set()
@@ -451,9 +479,10 @@ def render_heatmap_cards(n: int, matrix: pd.DataFrame):
             unique[idx] = val
     flat = pd.Series(unique)
     cols = st.columns(3)
+    _pct = f" ({n / headcount:.0%})" if headcount else ""
     with cols[0]:
         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                    f'<p class="card-value">n = {n:,}</p></div>', unsafe_allow_html=True)
+                    f'<p class="card-value">n = {n:,}{_pct}</p></div>', unsafe_allow_html=True)
     if flat.empty:
         return
     top3_pos = flat.nlargest(3)
@@ -478,52 +507,67 @@ def render_heatmap_cards(n: int, matrix: pd.DataFrame):
             unsafe_allow_html=True)
 
 
-def render_wow_variance_card(matrix: pd.DataFrame, top_n: int = 5):
-    """Show top N WoW themes by collective R² (sum across all outcome columns)."""
-    r2_sum = (matrix ** 2).sum(axis=1).sort_values(ascending=False)
-    rows_html = "".join(
-        f'<p class="card-sub">{wow}</p><p class="card-value">collective R² = {val:.3f}</p>'
-        for wow, val in r2_sum.head(top_n).items()
+
+def svc_selectors(tab_key: str, filtered_df: pd.DataFrame, directorates: list):
+    """Directorate + two-level service area/service selectors.
+    Returns (chart_df, dir_df, selected_dir, is_overall)."""
+    _label_style = (
+        '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+        'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px{extra}">{text}</p>'
     )
-    st.markdown(
-        f'<div class="metric-card"><p class="card-label">'
-        f'Top {top_n} WoW themes explaining most variation in employee experience</p>'
-        f'{rows_html}</div>',
-        unsafe_allow_html=True,
-    )
+    # ── Directorate ───────────────────────────────────────
+    st.markdown(_label_style.format(extra="", text="Select Directorate"),
+                unsafe_allow_html=True)
+    _dir_prev = st.session_state.get(f"{tab_key}_dir", directorates[0])
+    _dir_prev_df = filtered_df[filtered_df["Q1"] == _dir_prev]
+    _dir_prev_hc = HEADCOUNT.get(_dir_prev)
+    _dir_prev_pct = f" ({len(_dir_prev_df) / _dir_prev_hc:.0%} of headcount)" if _dir_prev_hc else ""
+    st.caption(f"{len(_dir_prev_df):,} respondents in **{_dir_prev}**{_dir_prev_pct}")
+    sel_dir = st.radio("Directorate", directorates, horizontal=True,
+                       label_visibility="collapsed", key=f"{tab_key}_dir")
+    dir_df = filtered_df[filtered_df["Q1"] == sel_dir]
+    n_dir = len(dir_df)
+    svc_groups = get_filter_options(dir_df, "svc_group")
+    if not svc_groups:
+        return dir_df, dir_df, sel_dir, True
+    # ── Service area ──────────────────────────────────────
+    st.markdown(_label_style.format(extra=";margin-top:8px", text="Select service area"),
+                unsafe_allow_html=True)
+    _sg_prev = st.session_state.get(f"{tab_key}_sg", "Overall")
+    _sg_prev_df = dir_df if _sg_prev == "Overall" else dir_df[dir_df["svc_group"] == _sg_prev]
+    _sg_prev_hc = SERVICE_AREA_HEADCOUNT.get(_sg_prev) if _sg_prev != "Overall" else HEADCOUNT.get(sel_dir)
+    _sg_prev_pct = f" ({len(_sg_prev_df) / _sg_prev_hc:.0%} of headcount)" if _sg_prev_hc else ""
+    st.caption(f"{len(_sg_prev_df):,} respondents in **{_sg_prev}**{_sg_prev_pct}")
+    sg_opts = ["Overall"] + list(svc_groups)
+    sel_sg = st.radio("Select service area", sg_opts, horizontal=True,
+                      label_visibility="collapsed", key=f"{tab_key}_sg")
+    if sel_sg == "Overall":
+        return dir_df, dir_df, sel_dir, True
+    sg_df = dir_df[dir_df["svc_group"] == sel_sg]
+    sub_svcs = get_filter_options(sg_df, "svc_name")
+    if not sub_svcs:
+        return sg_df, dir_df, sel_dir, False
+    # ── Service ───────────────────────────────────────────
+    st.markdown(_label_style.format(extra=";margin-top:8px", text="Select service"),
+                unsafe_allow_html=True)
+    _svc_prev = st.session_state.get(f"{tab_key}_svc", "Overall")
+    _svc_prev_df = sg_df if _svc_prev == "Overall" else sg_df[sg_df["svc_name"] == _svc_prev] if _svc_prev in sg_df["svc_name"].values else sg_df
+    st.caption(f"{len(_svc_prev_df):,} respondents in **{_svc_prev}**")
+    svc_opts = ["Overall"] + list(sub_svcs)
+    sel_svc = st.radio("Select service", svc_opts, horizontal=True,
+                       label_visibility="collapsed", key=f"{tab_key}_svc")
+    if sel_svc == "Overall":
+        return sg_df, dir_df, sel_dir, False
+    return sg_df[sg_df["svc_name"] == sel_svc], dir_df, sel_dir, False
 
 
-def render_trend_slope_card(df: pd.DataFrame, wow_cols: list, wow_labels: list,
-                            outcome_col: str, top_n: int = 3):
-    """Show top N WoW themes by absolute regression slope against the chosen outcome."""
-    slopes = []
-    for col, label in zip(wow_cols, wow_labels):
-        valid = df[[col, outcome_col]].dropna()
-        if len(valid) < 3:
-            continue
-        slope = np.polyfit(valid[col].values.astype(float),
-                           valid[outcome_col].values.astype(float), 1)[0]
-        slopes.append((label, slope))
-    slopes.sort(key=lambda x: abs(x[1]), reverse=True)
-    rows_html = "".join(
-        f'<p class="card-sub">{lbl}</p>'
-        f'<p class="card-value">slope = {"+" if s > 0 else ""}{s:.3f}</p>'
-        for lbl, s in slopes[:top_n]
-    )
-    st.markdown(
-        f'<div class="metric-card"><p class="card-label">'
-        f'Top {top_n} steepest trend lines (largest absolute slope)</p>'
-        f'{rows_html}</div>',
-        unsafe_allow_html=True,
-    )
-
-
-def render_summary_cards(n: int, top3_high: list, top3_low: list):
+def render_summary_cards(n: int, top3_high: list, top3_low: list, headcount: Optional[int] = None):
     """top3_high / top3_low are lists of (label, value_str) tuples."""
+    _pct = f" ({n / headcount:.0%})" if headcount else ""
     cols = st.columns(3)
     with cols[0]:
         st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                    f'<p class="card-value">n = {n:,}</p></div>', unsafe_allow_html=True)
+                    f'<p class="card-value">n = {n:,}{_pct}</p></div>', unsafe_allow_html=True)
     high_html = "".join(
         f'<p class="card-sub">{lbl}</p><p class="card-value">{val}</p>'
         for lbl, val in top3_high
@@ -558,6 +602,94 @@ def run_efa(outcome_df: pd.DataFrame, n_factors: int):
     return loadings, len(clean)
 
 
+@st.cache_data(show_spinner=False)
+def compute_factor_scores(outcome_df: pd.DataFrame, n_factors: int) -> pd.DataFrame:
+    """Return per-respondent factor scores (shape: n_respondents × n_factors)."""
+    clean = outcome_df.dropna()
+    fa = FactorAnalyzer(n_factors=n_factors, rotation="varimax", method="minres")
+    fa.fit(clean)
+    scores = fa.transform(clean)
+    cols = [f"LV{i+1}" for i in range(n_factors)]
+    return pd.DataFrame(scores, index=clean.index, columns=cols)
+
+
+@st.cache_data(show_spinner=False)
+def run_lf_driver_analysis(
+    df: pd.DataFrame,
+    factor_scores: pd.DataFrame,
+    predictor_cols: tuple,
+    predictor_labels: tuple,
+    p_threshold: float,
+):
+    """Run backward elimination of WoW themes against each latent factor score.
+    No correlation pre-filter — all predictors enter the model."""
+    import statsmodels.api as sm
+
+    col_to_lbl = dict(zip(predictor_cols, predictor_labels))
+    lf_cols = list(factor_scores.columns)
+    combined = df[list(predictor_cols)].join(factor_scores, how="inner").dropna()
+    results = {}
+
+    for lf_col in lf_cols:
+        y = combined[lf_col].values.astype(float)
+        eligible_cols = list(predictor_cols)
+
+        # Full model — check Significance F
+        X_full = sm.add_constant(
+            combined[eligible_cols].values.astype(float), has_constant="add"
+        )
+        full_model = sm.OLS(y, X_full).fit()
+        sig_f = float(full_model.f_pvalue)
+        adj_r2_full = float(full_model.rsquared_adj)
+
+        if sig_f >= 0.05:
+            results[lf_col] = {
+                "status": "fail_sig_f",
+                "sig_f": sig_f,
+                "adj_r2_full": adj_r2_full,
+                "n": len(combined),
+            }
+            continue
+
+        # Backward elimination
+        elim_log, coef_df, fitted, resid, adj_r2_final, r2_final, n, retained = \
+            run_backward_elimination(combined, lf_col, tuple(eligible_cols), p_threshold)
+
+        if coef_df is None:
+            results[lf_col] = {
+                "status": "all_eliminated",
+                "sig_f": sig_f,
+                "adj_r2_full": adj_r2_full,
+                "n": len(combined),
+            }
+            continue
+
+        factor_std = float(combined[lf_col].std())
+        coef_df = coef_df.copy()
+        coef_df["label"] = coef_df["col"].map(col_to_lbl)
+        coef_df["sig"] = coef_df["p_value"].apply(
+            lambda p: "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+        )
+        coef_df["point_change"] = coef_df["β_std"] * factor_std
+        coef_df["text"] = coef_df.apply(
+            lambda r: f"{r['β_std']:.2f}{r['sig']}  (Δ{r['point_change']:+.2f})", axis=1
+        )
+
+        results[lf_col] = {
+            "status": "ok",
+            "sig_f": sig_f,
+            "adj_r2_full": adj_r2_full,
+            "adj_r2_final": adj_r2_final,
+            "r2_final": r2_final,
+            "n": n,
+            "coef_df": coef_df,
+            "elim_log": elim_log,
+            "retained": retained,
+        }
+
+    return results
+
+
 @st.cache_data(show_spinner="Fitting SEM — this may take a moment…")
 def run_sem(fit_df: pd.DataFrame, wow_cols: tuple, factor_map_items: tuple):
     """factor_map_items: tuple of (outcome_col, lv_name) pairs (hashable for cache)."""
@@ -588,6 +720,101 @@ def run_sem(fit_df: pd.DataFrame, wow_cols: tuple, factor_map_items: tuple):
         return results, fit_stats, None, model_desc
     except Exception as e:
         return None, None, str(e), model_desc
+
+
+@st.cache_data(show_spinner=False)
+def run_driver_analysis_batch(
+    df: pd.DataFrame,
+    outcome_cols: tuple,
+    outcome_labels: tuple,
+    predictor_cols: tuple,
+    predictor_labels: tuple,
+    r_threshold: float,
+    p_threshold: float,
+):
+    """For each outcome: pre-filter predictors by |r| >= r_threshold, run full OLS,
+    check Significance F, then run backward elimination. Returns dict keyed by outcome label."""
+    import statsmodels.api as sm
+    from scipy.stats import spearmanr
+
+    col_to_lbl = dict(zip(predictor_cols, predictor_labels))
+    results = {}
+
+    for out_col, out_lbl in zip(outcome_cols, outcome_labels):
+        # ── Step 1: pre-filter by Spearman r ──────────────────
+        eligible_cols = []
+        for pc in predictor_cols:
+            valid = df[[pc, out_col]].dropna()
+            if len(valid) < 5:
+                continue
+            r, _ = spearmanr(valid[pc], valid[out_col])
+            if abs(r) >= r_threshold:
+                eligible_cols.append(pc)
+
+        if not eligible_cols:
+            results[out_lbl] = {"status": "no_predictors"}
+            continue
+
+        fit_df = df[eligible_cols + [out_col]].dropna()
+        y = fit_df[out_col].values.astype(float)
+
+        # ── Step 2: full model ─────────────────────────────────
+        X_full = sm.add_constant(fit_df[eligible_cols].values.astype(float), has_constant="add")
+        full_model = sm.OLS(y, X_full).fit()
+        sig_f = float(full_model.f_pvalue)
+        adj_r2_full = float(full_model.rsquared_adj)
+
+        if sig_f >= 0.05:
+            results[out_lbl] = {
+                "status": "fail_sig_f",
+                "sig_f": sig_f,
+                "adj_r2_full": adj_r2_full,
+                "n": len(fit_df),
+                "n_eligible": len(eligible_cols),
+            }
+            continue
+
+        # ── Step 3: backward elimination ──────────────────────
+        elim_log, coef_df, fitted, resid, adj_r2_final, r2_final, n, retained = \
+            run_backward_elimination(df, out_col, tuple(eligible_cols), p_threshold)
+
+        if coef_df is None:
+            results[out_lbl] = {
+                "status": "all_eliminated",
+                "sig_f": sig_f,
+                "adj_r2_full": adj_r2_full,
+                "n": len(fit_df),
+                "n_eligible": len(eligible_cols),
+            }
+            continue
+
+        outcome_std = float(y.std())
+        coef_df = coef_df.copy()
+        coef_df["label"] = coef_df["col"].map(col_to_lbl)
+        coef_df["sig"] = coef_df["p_value"].apply(
+            lambda p: "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+        )
+        coef_df["point_change"] = coef_df["β_std"] * outcome_std
+        coef_df["text"] = coef_df.apply(
+            lambda r: f"{r['β_std']:.2f}{r['sig']}  (Δ{r['point_change']:+.2f} pts)", axis=1
+        )
+
+        results[out_lbl] = {
+            "status": "ok",
+            "sig_f": sig_f,
+            "adj_r2_full": adj_r2_full,
+            "adj_r2_final": adj_r2_final,
+            "r2_final": r2_final,
+            "n": n,
+            "n_eligible": len(eligible_cols),
+            "coef_df": coef_df,
+            "outcome_std": outcome_std,
+            "fitted": fitted,
+            "elim_log": elim_log,
+            "retained": retained,
+        }
+
+    return results
 
 
 @st.cache_data(show_spinner="Running backward elimination…")
@@ -747,7 +974,7 @@ def build_outcome_table(df: pd.DataFrame, breakdown_col: str,
     return tdf, styler
 
 
-def wow_table_cards(n, tdf):
+def wow_table_cards(n, tdf, headcount: Optional[int] = None):
     p = pd.to_numeric(tdf["Overall — P"], errors="coerce")
     i = pd.to_numeric(tdf["Overall — I"], errors="coerce")
     combined = pd.concat([
@@ -755,21 +982,21 @@ def wow_table_cards(n, tdf):
         i.rename(index=lambda x: f"I · {x}"),
     ]).dropna()
     if combined.empty:
-        render_summary_cards(n, [], [])
+        render_summary_cards(n, [], [], headcount)
         return
     top3_high = [(lbl, f"{val:.2f}") for lbl, val in combined.nlargest(3).items()]
     top3_low  = [(lbl, f"{val:.2f}") for lbl, val in combined.nsmallest(3).items()]
-    render_summary_cards(n, top3_high, top3_low)
+    render_summary_cards(n, top3_high, top3_low, headcount)
 
 
-def outcome_table_cards(n, tdf):
+def outcome_table_cards(n, tdf, headcount: Optional[int] = None):
     ov = pd.to_numeric(tdf["Overall"], errors="coerce").dropna()
     if ov.empty:
-        render_summary_cards(n, [], [])
+        render_summary_cards(n, [], [], headcount)
         return
     top3_high = [(lbl, f"{val:.2f}") for lbl, val in ov.nlargest(3).items()]
     top3_low  = [(lbl, f"{val:.2f}") for lbl, val in ov.nsmallest(3).items()]
-    render_summary_cards(n, top3_high, top3_low)
+    render_summary_cards(n, top3_high, top3_low, headcount)
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────────
@@ -825,816 +1052,1715 @@ q9_levels    = get_filter_options(df, "Q9")
 
 # ── Top-level section tabs ────────────────────────────────────────────────────────
 sec_a, sec_b = st.tabs([
-    "Section A — Council-Wide & By Directorate",
-    "Section B — Service Deep Dive",
+    "Section A: Council-Wide",
+    "Section B — Directorate & Service Deep Dive",
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════════
 # SECTION A
 # ═══════════════════════════════════════════════════════════════════════════════════
 with sec_a:
-    corr_group, desc_group = st.tabs(["Correlation Analysis", "Descriptive Analysis"])
+    corr_group, desc_group = st.tabs(["A1 · Drivers Analysis", "A2 · Descriptive Analysis"])
 
     # ── Correlation Analysis group ────────────────────────
     with corr_group:
-        a1, a2, a3 = st.tabs([
-            "A1 · WoW × Outcomes",
-            "A2 · WoW × WoW",
-            "A3 · Outcomes × Outcomes",
+        # ── ODA tabs at the top level ─────────────────────────
+        oda_outcomes_tab, oda_lf_tab, heatmaps_tab = st.tabs([
+            "A1.1 · Individual Outcomes",
+            "A1.2 · Grouped Outcomes",
+            "A1.3 · Correlational Heatmaps",
         ])
 
-        # ── A1: Ways of Working × Outcomes ───────────────────
-        with a1:
-            a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
-            with a1_place:
-                st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
-                mat = spearman_matrix(filtered, WOW_PLACE_COLS, OUTCOME_COLS)
-                mat.index   = WOW_THEMES
-                mat.columns = OUTCOME_LABELS
-                render_heatmap_cards(n_total, mat)
-                render_wow_variance_card(mat)
-                st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
-                                use_container_width=True, key="a1_place")
-                st.markdown("---")
-                st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
-                sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_place_out")
-                out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
-                render_trend_slope_card(filtered, WOW_PLACE_COLS, WOW_THEMES, out_col)
-                st.plotly_chart(make_trend_chart(filtered, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
-                                use_container_width=True, key=f"a1_place_trend_{sel_out}")
-            with a1_ind:
-                st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
-                mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
-                mat.index   = WOW_THEMES
-                mat.columns = OUTCOME_LABELS
-                render_heatmap_cards(n_total, mat)
-                render_wow_variance_card(mat)
-                st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
-                                use_container_width=True, key="a1_ind")
-                st.markdown("---")
-                st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
-                sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="a1_ind_out")
-                out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
-                render_trend_slope_card(filtered, WOW_IND_COLS, WOW_THEMES, out_col)
-                st.plotly_chart(make_trend_chart(filtered, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
-                                use_container_width=True, key=f"a1_ind_trend_{sel_out}")
+        with oda_outcomes_tab:
+            st.caption(
+                "For each employee experience outcome, this analysis: (1) keeps only WoW themes "
+                "with |r| ≥ the correlation floor — weak predictors are excluded before modelling "
+                "begins; (2) runs a multiple regression with all remaining themes simultaneously "
+                "and checks whether the overall model is statistically reliable (Significance F < 0.05); "
+                "(3) progressively removes the weakest contributors until only those with an independent, "
+                "meaningful relationship remain. The priority matrix shows the confirmed behavioural "
+                "drivers across all outcomes at a glance."
+            )
 
-            # ── Advanced Analysis tabs ─────────────────────────────────
-            st.markdown("---")
-            a1_adv_sem, a1_adv_model = st.tabs([
-                "Exploratory Factor Analysis & SEM",
-                "Second-Level Modelling",
-            ])
+            # ── Controls ──────────────────────────────────────────────
+            oda_c1, oda_c2, oda_c3 = st.columns([3, 2, 2])
+            with oda_c1:
+                wow_choice_oda = st.radio(
+                    "WoW predictors", ["Place (P)", "Individual (I)"],
+                    horizontal=True, key="oda_wow"
+                )
+            with oda_c2:
+                r_thresh_oda = st.slider(
+                    "Correlation floor |r| ≥", 0.00, 0.40, 0.20, 0.05, key="oda_r"
+                )
+                st.markdown(
+                    '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                    'Recommended: 0.20</p>',
+                    unsafe_allow_html=True)
+            with oda_c3:
+                p_thresh_oda = st.slider(
+                    "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="oda_p"
+                )
+                st.markdown(
+                    '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                    'Recommended: 0.05</p>',
+                    unsafe_allow_html=True)
 
-            with a1_adv_sem:
-                st.caption(
-                    "Step 1: EFA identifies hidden clusters in your employee experience outcomes. "
-                    "Step 2: SEM then estimates how each WoW theme predicts those clusters, "
-                    "accounting for intercorrelations between WoW themes."
+            if "Place" in wow_choice_oda:
+                oda_pred_cols = tuple(WOW_PLACE_COLS)
+                oda_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+            else:
+                oda_pred_cols = tuple(WOW_IND_COLS)
+                oda_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
+            oda_pred_labels = tuple(oda_col_to_lbl[c] for c in oda_pred_cols)
+
+            with st.spinner("Running outcome driver analysis…"):
+                oda_results = run_driver_analysis_batch(
+                    filtered,
+                    tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                    oda_pred_cols, oda_pred_labels,
+                    r_thresh_oda, p_thresh_oda,
                 )
 
-                outcome_clean_sem = filtered[OUTCOME_COLS].dropna()
-                if len(outcome_clean_sem) < 20:
-                    st.warning("Too few complete responses for SEM analysis.")
-                else:
-                    corr_mat = np.corrcoef(outcome_clean_sem.values.T)
-                    eigenvalues = sorted(np.linalg.eigvalsh(corr_mat).tolist(), reverse=True)
-                    n_kaiser = max(2, sum(1 for e in eigenvalues if e > 1))
+            ok_outcomes = {lbl: res for lbl, res in oda_results.items()
+                           if res["status"] == "ok"}
 
-                    st.markdown("#### Step 1 · Scree Plot — How many hidden factors exist in your outcome data?")
+            _oda_combined = {}
+            for _res in ok_outcomes.values():
+                for _, _row in _res["coef_df"].iterrows():
+                    _lbl = _row["label"]
+                    _oda_combined[_lbl] = _oda_combined.get(_lbl, 0.0) + _row["β_std"]
+            if _oda_combined:
+                _oda_sorted = sorted(_oda_combined.items(), key=lambda x: x[1], reverse=True)
+                _oda_labels = [x[0] for x in _oda_sorted]
+                _oda_scores = [x[1] for x in _oda_sorted]
+                st.markdown("#### Top WoW Drivers — Combined Across All Outcomes")
+                st.caption(
+                    "Each bar shows the sum of standardised β values for that WoW theme across all "
+                    "individual outcome models where it was a confirmed driver, preserving sign. "
+                    "A consistently positive theme scores high; mixed effects partially cancel out. "
+                    "Red = net positive effect; blue = net negative."
+                )
+                _fig_oda_c = go.Figure(go.Bar(
+                    x=_oda_labels,
+                    y=_oda_scores,
+                    text=[f"{s:+.2f}" for s in _oda_scores],
+                    textposition="outside",
+                    textfont=dict(color="#1A2B3C", size=10),
+                    marker_color=[RED if s >= 0 else PRIMARY for s in _oda_scores],
+                    hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                ))
+                _fig_oda_c.update_layout(
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=10, t=40, b=260),
+                    xaxis=dict(tickangle=-40, tickfont=dict(color="#1A2B3C", size=10)),
+                    yaxis=dict(
+                        title=dict(text="Combined β", font=dict(color="#1A2B3C")),
+                        zeroline=True, zerolinecolor="#D6E0EA",
+                        tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                    ),
+                    height=560,
+                )
+                st.plotly_chart(_fig_oda_c, use_container_width=True, key="oda_combined_bar")
+
+            # ── Priority matrix ────────────────────────────────────────
+            st.markdown("---")
+            st.markdown("#### Top Ways of Working Drivers — Per Outcome")
+            st.caption(
+                "Each cell shows the standardised β for a WoW theme that survived backward "
+                "elimination for that outcome's model. Blank = not a confirmed driver (below "
+                "the correlation floor or eliminated). Blue = positive effect (more of this "
+                "behaviour → better outcome score); red = negative effect."
+            )
+
+            if not ok_outcomes:
+                st.warning(
+                    "No outcomes produced a statistically reliable model with the current settings. "
+                    "Try lowering the correlation floor or raising the p-value threshold."
+                )
+            else:
+                all_retained_labels = sorted(set(
+                    oda_col_to_lbl[c]
+                    for res in ok_outcomes.values()
+                    for c in res["retained"]
+                ))
+                matrix_rows = {}
+                for out_lbl, res in ok_outcomes.items():
+                    lbl_to_beta = {
+                        row["label"]: row["β_std"]
+                        for _, row in res["coef_df"].iterrows()
+                    }
+                    matrix_rows[out_lbl] = {
+                        theme: lbl_to_beta.get(theme, np.nan)
+                        for theme in all_retained_labels
+                    }
+                priority_df = pd.DataFrame(matrix_rows, index=all_retained_labels)
+                _ordered_outcomes = [lbl for lbl in OUTCOME_LABELS if lbl in priority_df.columns]
+                priority_df = priority_df[_ordered_outcomes]
+
+                beta_abs_max = priority_df.abs().max().max()
+                beta_abs_max = max(beta_abs_max, 0.01)
+
+                priority_df_T = priority_df.T  # outcomes as rows, WoW as columns
+                fig_matrix = go.Figure(go.Heatmap(
+                    z=priority_df_T.values.tolist(),
+                    x=list(priority_df_T.columns),
+                    y=list(priority_df_T.index),
+                    colorscale=[
+                        [0.0,  "#0F4C6B"],
+                        [0.5,  "#F7F9FC"],
+                        [1.0,  "#C0392B"],
+                    ],
+                    zmid=0,
+                    zmin=-beta_abs_max,
+                    zmax=beta_abs_max,
+                    text=[[
+                        f"{v:.2f}" if not np.isnan(v) else ""
+                        for v in row
+                    ] for row in priority_df_T.values.tolist()],
+                    texttemplate="%{text}",
+                    textfont=dict(size=11, color="#1A2B3C"),
+                    hoverongaps=False,
+                    hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
+                    colorbar=dict(title="β", len=0.7),
+                ))
+                fig_matrix.update_layout(
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=10, t=10, b=160),
+                    xaxis=dict(
+                        tickfont=dict(color="#1A2B3C", size=11),
+                        tickangle=-40,
+                        side="bottom",
+                    ),
+                    yaxis=dict(tickfont=dict(color="#1A2B3C", size=11), autorange="reversed"),
+                    height=max(350, 36 * len(ok_outcomes)),
+                )
+                st.plotly_chart(fig_matrix, use_container_width=True, key="oda_matrix")
+
+            # ── Per-outcome detail ─────────────────────────────────────
+            st.markdown("---")
+            st.markdown('<p style="font-size:14px;font-weight:600;color:#5A7080;margin-top:8px;margin-bottom:4px">Breakdown per Outcome</p>', unsafe_allow_html=True)
+
+            for out_lbl in OUTCOME_LABELS:
+                res = oda_results.get(out_lbl, {"status": "no_predictors"})
+                status = res["status"]
+                icon = "✓" if status == "ok" else "✗"
+                with st.expander(f"{icon}  {out_lbl}"):
+                    if status == "no_predictors":
+                        st.info(
+                            f"No WoW themes reached |r| ≥ {r_thresh_oda:.2f} for this outcome. "
+                            "No regression was run."
+                        )
+                    elif status == "fail_sig_f":
+                        st.error(
+                            f"**Model not statistically reliable** — Significance F = {res['sig_f']:.4f} "
+                            f"(> 0.05). The {res['n_eligible']} predictors that cleared the correlation "
+                            f"floor did not collectively explain this outcome reliably. "
+                            "Do not read into the individual coefficients."
+                        )
+                        mc1, mc2, mc3 = st.columns(3)
+                        for col_ui, label, value in [
+                            (mc1, "Respondents", f"n = {res['n']:,}"),
+                            (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                            (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                        ]:
+                            with col_ui:
+                                st.markdown(
+                                    f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                    f'<p class="card-value">{value}</p></div>',
+                                    unsafe_allow_html=True)
+                    elif status == "all_eliminated":
+                        st.warning(
+                            "All predictors were eliminated during backward stepwise. "
+                            "Try raising the p-value threshold."
+                        )
+                        mc1, mc2, mc3 = st.columns(3)
+                        for col_ui, label, value in [
+                            (mc1, "Respondents", f"n = {res['n']:,}"),
+                            (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                            (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                        ]:
+                            with col_ui:
+                                st.markdown(
+                                    f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                    f'<p class="card-value">{value}</p></div>',
+                                    unsafe_allow_html=True)
+                    else:
+                        coef_df = res["coef_df"]
+                        # Summary cards
+                        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                        for col_ui, label, value in [
+                            (mc1, "Respondents",         f"n = {res['n']:,}"),
+                            (mc2, "Significance F",      f"{res['sig_f']:.4f}"),
+                            (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                            (mc4, "Adj R² (final model)",f"{res['adj_r2_final']:.3f}"),
+                            (mc5, "Confirmed drivers",   str(len(res["retained"]))),
+                        ]:
+                            with col_ui:
+                                st.markdown(
+                                    f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                    f'<p class="card-value">{value}</p></div>',
+                                    unsafe_allow_html=True)
+
+                        # β coefficient chart
+                        st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
+                        st.caption(
+                            "Each bar shows a retained WoW theme's standardised β and the equivalent "
+                            "point change on the 1–5 outcome scale (Δ pts). β reflects the independent "
+                            "contribution of that theme after controlling for all others — a 1 SD shift "
+                            "in the WoW theme produces the shown point change in the outcome. "
+                            "* p<0.05  ** p<0.01  *** p<0.001"
+                        )
+                        coef_sorted = coef_df.reindex(
+                            coef_df["β_std"].abs().sort_values(ascending=False).index
+                        )
+                        fig_coef = go.Figure(go.Bar(
+                            x=coef_sorted["label"],
+                            y=coef_sorted["β_std"],
+                            text=coef_sorted["text"],
+                            textposition="outside",
+                            textfont=dict(color="#1A2B3C", size=10),
+                            marker_color=[
+                                RED if v >= 0 else PRIMARY
+                                for v in coef_sorted["β_std"]
+                            ],
+                            hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                        ))
+                        fig_coef.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=40, b=160),
+                            xaxis=dict(
+                                tickangle=-40,
+                                tickfont=dict(color="#1A2B3C", size=10),
+                            ),
+                            yaxis=dict(
+                                title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                                zeroline=True, zerolinecolor="#D6E0EA",
+                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                            ),
+                            height=420,
+                        )
+                        st.plotly_chart(fig_coef, use_container_width=True,
+                                        key=f"oda_coef_{out_lbl}")
+
+                        # Elimination path
+                        st.markdown("##### Elimination Path — Adj R² at each step")
+                        st.caption(
+                            "Each point shows the model's Adjusted R² after removing the least "
+                            "significant predictor at that step. A flat or rising line means those "
+                            "predictors weren't earning their place. A drop signals the core has "
+                            "been reached."
+                        )
+                        log_df = pd.DataFrame(res["elim_log"])
+                        fig_elim = go.Figure(go.Scatter(
+                            x=log_df["Predictors in model"],
+                            y=log_df["Adj. R²"],
+                            mode="lines+markers",
+                            line=dict(color=PRIMARY, width=2),
+                            marker=dict(color=PRIMARY, size=8),
+                            hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
+                        ))
+                        fig_elim.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=10, b=10),
+                            xaxis=dict(
+                                title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
+                                autorange="reversed",
+                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                            ),
+                            yaxis=dict(
+                                title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
+                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                            ),
+                            height=300,
+                        )
+                        st.plotly_chart(fig_elim, use_container_width=True,
+                                        key=f"oda_elim_{out_lbl}")
+
+        with oda_lf_tab:
+            st.caption(
+                "Runs the same multiple regression pipeline as the Outcomes tab, but uses "
+                "the latent factor scores (LV1, LV2 …) derived from the EFA in the "
+                "Outcome Clusters tab as the dependent variables. All WoW themes enter the "
+                "model directly — no correlation floor is applied since there is no "
+                "pre-existing heatmap for latent factors. Backward elimination then removes "
+                "non-significant predictors until only confirmed drivers remain."
+            )
+
+            # ── Controls row 1: WoW type + p-value ────────────────
+            lf_c1, lf_c2, lf_c3 = st.columns([3, 2, 2])
+            with lf_c1:
+                wow_choice_lf = st.radio(
+                    "WoW predictors", ["Place (P)", "Individual (I)"],
+                    horizontal=True, key="lf_wow"
+                )
+            with lf_c3:
+                p_thresh_lf = st.slider(
+                    "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="lf_p"
+                )
+                st.markdown(
+                    '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                    'Recommended: 0.05</p>',
+                    unsafe_allow_html=True)
+
+            # ── Controls row 2: n_factors + factor preview ─────────
+            lf_r2_left, _ = st.columns([2, 5])
+            with lf_r2_left:
+                lf_n_factors = st.slider(
+                    "Number of latent factors", 1, 6, 3, key="lf_nfactors"
+                )
+            with st.expander("Scree Plot — How many hidden factors exist in your outcome data?"):
+                _sem_clean_a = filtered[OUTCOME_COLS].dropna()
+                if len(_sem_clean_a) < 20:
+                    st.warning("Too few complete responses for factor analysis.")
+                else:
+                    _corr_a = np.corrcoef(_sem_clean_a.values.T)
+                    _eig_a = sorted(np.linalg.eigvalsh(_corr_a).tolist(), reverse=True)
+                    _nk_a = max(2, sum(1 for e in _eig_a if e > 1))
                     st.caption(
-                        "This graph helps you decide how many distinct themes exist within your employee experience "
-                        "questions. Each point is one potential theme (factor), and its height shows how much shared "
-                        "information it captures across your outcome questions. The dashed line is a cut-off rule: "
-                        "factors above it are capturing more than a single question's worth of information on their "
-                        "own, so they're worth keeping. Look for where the curve suddenly goes from steep to flat — "
-                        "that's the point where additional factors stop adding meaningful new information. The factors "
-                        "to the left of that bend are your real underlying themes. Use the slider below to set how "
-                        "many to extract."
+                        "Each point is one potential factor and its height shows how much shared information "
+                        "it captures. Factors above the dashed line (eigenvalue > 1) are worth keeping. "
+                        "Look for where the curve flattens — that bend marks your real underlying themes."
                     )
-                    fig_scree = go.Figure([go.Scatter(
-                        x=list(range(1, len(eigenvalues) + 1)), y=eigenvalues,
+                    _fig_scree_a = go.Figure([go.Scatter(
+                        x=list(range(1, len(_eig_a) + 1)), y=_eig_a,
                         mode="lines+markers",
                         line=dict(color=PRIMARY, width=2),
                         marker=dict(color=PRIMARY, size=7),
                         hovertemplate="Factor %{x}<br>Eigenvalue = %{y:.3f}<extra></extra>",
                     )])
-                    fig_scree.add_hline(
-                        y=1, line_dash="dash", line_color="#C0392B",
+                    _fig_scree_a.add_hline(y=1, line_dash="dash", line_color="#C0392B",
                         annotation_text="Kaiser criterion (λ = 1)",
-                        annotation_font=dict(color="#C0392B", size=11),
-                    )
-                    fig_scree.update_layout(
+                        annotation_font=dict(color="#C0392B", size=11))
+                    _fig_scree_a.update_layout(
                         font=dict(family="Inter", color="#1A2B3C"),
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
                         margin=dict(l=10, r=10, t=20, b=10),
                         xaxis=dict(title=dict(text="Factor", font=dict(color="#1A2B3C")),
-                                   tickvals=list(range(1, len(eigenvalues) + 1)),
+                                   tickvals=list(range(1, len(_eig_a) + 1)),
                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
                         yaxis=dict(title=dict(text="Eigenvalue", font=dict(color="#1A2B3C")),
                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
                         height=300,
                     )
-                    st.plotly_chart(fig_scree, use_container_width=True, key="a1_sem_scree")
+                    st.plotly_chart(_fig_scree_a, use_container_width=True, key="a1_sem_scree")
+            if "Place" in wow_choice_lf:
+                lf_pred_cols = tuple(WOW_PLACE_COLS)
+                lf_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+            else:
+                lf_pred_cols = tuple(WOW_IND_COLS)
+                lf_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
+            lf_pred_labels = tuple(lf_col_to_lbl[c] for c in lf_pred_cols)
 
-                    n_factors = st.slider(
-                        "Number of latent factors", min_value=2,
-                        max_value=min(8, len(OUTCOME_COLS) - 1),
-                        value=n_kaiser, key="a1_sem_nfactors",
-                        help="Factors with eigenvalue > 1 (Kaiser criterion) are suggested as a starting point",
+            outcome_clean_lf = filtered[OUTCOME_COLS].dropna()
+            if len(outcome_clean_lf) < 20:
+                st.warning("Too few complete responses for factor analysis.")
+            else:
+                with st.spinner("Computing factor scores and running regressions…"):
+                    factor_scores_df = compute_factor_scores(
+                        filtered[OUTCOME_COLS], lf_n_factors
+                    )
+                    lf_results = run_lf_driver_analysis(
+                        filtered, factor_scores_df,
+                        lf_pred_cols, lf_pred_labels, p_thresh_lf
                     )
 
-                    loadings, n_efa = run_efa(filtered[OUTCOME_COLS], n_factors)
-                    loadings_display = loadings.copy()
-                    loadings_display.index = OUTCOME_LABELS
-                    lv_cols = [f"LV{i+1}" for i in range(n_factors)]
+                # ── Factor preview + WoW drivers ──────────────────
+                _lf_loadings, _ = run_efa(filtered[OUTCOME_COLS], lf_n_factors)
+                _lf_loadings.index = OUTCOME_LABELS
+                _lf_cols = [f"LV{i+1}" for i in range(lf_n_factors)]
+                _lf_max = _lf_loadings.abs().max(axis=1)
+                _lf_primary = _lf_loadings.abs().idxmax(axis=1).copy()
+                _lf_primary[_lf_max < 0.3] = "Unassigned"
+                _lf_members = {lv: [] for lv in _lf_cols}
+                for _outcome, _lv in _lf_primary.items():
+                    if _lv != "Unassigned":
+                        _lf_members[_lv].append(
+                            (_outcome, _lf_loadings.loc[_outcome, _lv])
+                        )
+                for _lv in _lf_members:
+                    _lf_members[_lv].sort(key=lambda x: abs(x[1]), reverse=True)
 
-                    st.markdown(f"#### Step 2 · Factor Loadings — Which outcomes cluster together? (n = {n_efa:,})")
-                    st.caption(
-                        "Each cell shows a loading value — a correlation score between that outcome question and "
-                        "that factor, ranging from -1 to +1. A value above 0.7 means that question is a core part "
-                        "of what that factor represents. Between 0.4 and 0.7 is a moderate association. Below 0.3 "
-                        "means that question isn't really measuring this factor. Read down each column to see which "
-                        "outcomes cluster together — that cluster is what gives the factor its meaning, and tells "
-                        "you what to name it (e.g. if Intent to stay, Good place to work, and Employer rating all "
-                        "load highly on LV1, you might call it 'Retention & Advocacy')."
-                    )
-                    max_load_pre = loadings_display.abs().max(axis=1)
-                    primary_pre = loadings_display.abs().idxmax(axis=1).copy()
-                    primary_pre[max_load_pre < 0.3] = "Unassigned"
-                    factor_members = {lv: [] for lv in lv_cols}
-                    factor_members["Unassigned"] = []
-                    for outcome, lv in primary_pre.items():
-                        factor_members[lv].append(outcome)
-
-                    card_cols = st.columns(n_factors)
-                    for col_ui, lv in zip(card_cols, lv_cols):
-                        members = factor_members[lv]
-                        items_html = "".join(
-                            f'<p class="card-sub">· {m}</p>' for m in members
-                        ) if members else '<p class="card-sub"><em>No outcomes assigned</em></p>'
-                        with col_ui:
-                            st.markdown(
-                                f'<div class="metric-card-lg">'
-                                f'<p class="card-label">{lv} — unnamed</p>'
-                                f'{items_html}'
-                                f'</div>',
-                                unsafe_allow_html=True,
-                            )
-
-                    fig_load = make_heatmap(loadings_display, OUTCOME_LABELS, lv_cols)
-                    st.plotly_chart(fig_load, use_container_width=True, key="a1_sem_loadings")
-
-                    max_load = loadings_display.abs().max(axis=1)
-                    primary = loadings_display.abs().idxmax(axis=1).copy()
-                    primary[max_load < 0.3] = "Unassigned"
-
-                    st.markdown("#### Step 3 · SEM Structural Paths — Which Ways of Working drive each factor?")
-                    wow_choice_sem = st.radio(
-                        "WoW predictors", ["Place (P)", "Individual (I)"],
-                        horizontal=True, key="a1_sem_wow",
-                    )
-                    wow_cols_sem = tuple(WOW_PLACE_COLS if "Place" in wow_choice_sem else WOW_IND_COLS)
-
-                    raw_primary = pd.Series(primary.values, index=OUTCOME_COLS)
-                    factor_map_items = tuple(sorted(
-                        (col, lv) for col, lv in raw_primary.items() if lv != "Unassigned"
-                    ))
-
-                    fit_df_sem = filtered[OUTCOME_COLS + list(wow_cols_sem)].dropna()
-
-                    if len(fit_df_sem) < 100:
-                        st.warning(f"Too few complete cases ({len(fit_df_sem)}) for SEM.")
-                    elif not factor_map_items:
-                        st.warning("No outcomes assigned to factors. Try reducing the number of factors.")
+                # ── Combined top WoW drivers across all latent factors ──
+                _combined_betas: dict = {}
+                for _lv, _res in lf_results.items():
+                    if _res.get("status") == "ok":
+                        for _, _row in _res["coef_df"].iterrows():
+                            _lbl = _row["label"]
+                            _combined_betas[_lbl] = _combined_betas.get(_lbl, 0.0) + _row["β_std"]
+                _preview_cols = st.columns(lf_n_factors)
+                for _col_ui, _lv in zip(_preview_cols, _lf_cols):
+                    _items_html = "".join(
+                        f'<p class="card-sub">· {m} ({v:.2f})</p>'
+                        for m, v in _lf_members[_lv]
+                    ) or '<p class="card-sub"><em>None assigned</em></p>'
+                    _res = lf_results.get(_lv, {})
+                    if _res.get("status") == "ok":
+                        _coef = _res["coef_df"].copy()
+                        _coef_sorted = _coef.reindex(
+                            _coef["β_std"].abs().sort_values(ascending=False).index
+                        )
+                        _drivers_html = "".join(
+                            f'<p class="card-sub">· {row["label"]} '
+                            f'(<span style="color:{"#C0392B" if row["β_std"] >= 0 else "#2980B9"};font-weight:600">'
+                            f'{row["β_std"]:+.2f}</span>)</p>'
+                            for _, row in _coef_sorted.iterrows()
+                        )
+                    elif _res.get("status") == "fail_sig_f":
+                        _drivers_html = (
+                            f'<p class="card-sub"><em>Model not reliable '
+                            f'(Sig. F = {_res["sig_f"]:.3f})</em></p>'
+                        )
                     else:
-                        results_sem, fit_stats_sem, err_sem, model_desc_sem = run_sem(
-                            fit_df_sem, wow_cols_sem, factor_map_items
-                        )
-                        st.caption(
-                            "The SEM estimates a path coefficient (β) from each WoW theme to each latent factor, "
-                            "while simultaneously accounting for correlations between WoW themes. A positive β means "
-                            "that WoW theme is associated with higher scores on that factor; negative means lower. "
-                            "Unlike simple correlation, SEM isolates each WoW theme's unique contribution after "
-                            "controlling for all the others."
-                        )
-                        with st.expander("Model specification"):
-                            st.code(model_desc_sem, language="text")
+                        _drivers_html = '<p class="card-sub"><em>No confirmed drivers</em></p>'
+                    with _col_ui:
+                        st.markdown(
+                            f'<div class="metric-card-lg">'
+                            f'<p class="card-label">{_lv}</p>'
+                            f'{_items_html}'
+                            f'<p class="card-label" style="margin-top:10px">'
+                            f'Top WoW drivers (β)</p>'
+                            f'{_drivers_html}'
+                            f'</div>',
+                            unsafe_allow_html=True)
 
-                        if err_sem:
-                            st.error(f"SEM could not converge: {err_sem}")
-                        else:
-                            if fit_stats_sem is not None:
-                                try:
-                                    fit_row = fit_stats_sem.iloc[0] if hasattr(fit_stats_sem, "iloc") else fit_stats_sem
-                                    stat_keys = [k for k in ["CFI", "GFI", "RMSEA", "AIC"] if k in fit_row.index]
-                                    fcols = st.columns(max(1, len(stat_keys)))
-                                    for fc, sk in zip(fcols, stat_keys):
-                                        val = fit_row[sk]
-                                        with fc:
-                                            st.markdown(
-                                                f'<div class="metric-card">'
-                                                f'<p class="card-label">{sk}</p>'
-                                                f'<p class="card-value">'
-                                                f'{"—" if pd.isna(val) else f"{val:.3f}"}'
-                                                f'</p></div>',
-                                                unsafe_allow_html=True,
-                                            )
-                                except Exception:
-                                    pass
-
-                            st.markdown("#### Model Fit Statistics — How well does the model fit the data?")
-                            st.caption(
-                                "CFI and GFI > 0.90 indicate acceptable fit (> 0.95 is good). "
-                                "RMSEA < 0.08 is acceptable (< 0.05 is good). "
-                                "AIC is used for comparing models — lower is better."
-                            )
-
-                            paths_sem = results_sem[
-                                (results_sem["op"] == "~") &
-                                (results_sem["rval"].isin(list(wow_cols_sem)))
-                            ].copy()
-
-                            if not paths_sem.empty:
-                                col_to_label = dict(zip(wow_cols_sem, WOW_THEMES))
-                                paths_sem["wow_label"] = paths_sem["rval"].map(col_to_label)
-                                p_col = next(
-                                    (c for c in paths_sem.columns if "p-value" in c.lower() or "p_value" in c.lower()),
-                                    None,
-                                )
-                                pivot_est = paths_sem.pivot(index="wow_label", columns="lval", values="Estimate")
-
-                                if p_col:
-                                    paths_sem[p_col] = pd.to_numeric(paths_sem[p_col], errors="coerce")
-                                    pivot_p = paths_sem.pivot(index="wow_label", columns="lval", values=p_col)
-                                    text_vals = [
-                                        [
-                                            f"{e:.2f}{'***' if (not pd.isna(p) and p < 0.001) else '**' if (not pd.isna(p) and p < 0.01) else '*' if (not pd.isna(p) and p < 0.05) else ''}"
-                                            for e, p in zip(row_e, row_p)
-                                        ]
-                                        for row_e, row_p in zip(pivot_est.values, pivot_p.values)
-                                    ]
-                                else:
-                                    text_vals = [[f"{e:.2f}" for e in row] for row in pivot_est.values]
-
-                                fig_paths = go.Figure(go.Heatmap(
-                                    z=pivot_est.values,
-                                    x=pivot_est.columns.tolist(),
-                                    y=pivot_est.index.tolist(),
-                                    text=text_vals,
-                                    texttemplate="%{text}",
-                                    textfont={"size": 9, "color": "#1A2B3C"},
-                                    colorscale=HEATMAP_COLORSCALE,
-                                    zmid=0,
-                                    colorbar=dict(title="β", tickfont=dict(color="#1A2B3C")),
-                                    hovertemplate="WoW: %{y}<br>Factor: %{x}<br>β = %{z:.3f}<extra></extra>",
-                                ))
-                                fig_paths.update_layout(
-                                    font=dict(family="Inter", color="#1A2B3C"),
-                                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                                    margin=dict(l=10, r=10, t=40, b=10),
-                                    xaxis=dict(tickfont=dict(color="#1A2B3C"), side="top"),
-                                    yaxis=dict(tickfont=dict(color="#1A2B3C"), autorange="reversed"),
-                                    height=max(400, 28 * len(pivot_est)),
-                                )
-                                st.markdown("#### Path Coefficient Heatmap — WoW themes (rows) × Latent factors (columns)")
-                                st.caption(
-                                    "Each cell shows the standardised path coefficient (β) from that WoW theme to "
-                                    "that factor. Red = positive effect (higher WoW score → higher factor score); "
-                                    "blue = negative. Stars show statistical significance: * p<0.05, ** p<0.01, "
-                                    "*** p<0.001. Cells without stars are not reliably different from zero — treat "
-                                    "them with caution. Remember: LV1, LV2 etc. are named by you based on the "
-                                    "factor loadings table above."
-                                )
-                                st.plotly_chart(fig_paths, use_container_width=True,
-                                                key=f"a1_sem_paths_{wow_choice_sem}")
-
-            with a1_adv_model:
-                st.markdown("#### Second-Level Modelling — Nested Behavioural Model")
-                st.caption(
-                    "Finds the smallest combination of WoW themes that together best predict a chosen "
-                    "employee experience outcome. Starting with all WoW themes as predictors, the model "
-                    "removes them one by one — least significant first — until only those with an "
-                    "independent, statistically reliable relationship remain. The key metric is Adjusted R²: "
-                    "it tells you how much of the variation in that outcome is explained by the retained "
-                    "WoW themes, penalised for adding predictors that don't earn their place."
-                )
-
-                # ── Controls ─────────────────────────────────────────────
-                slm_c1, slm_c2, slm_c3 = st.columns([3, 3, 2])
-                with slm_c1:
-                    sel_outcome_slm = st.selectbox(
-                        "Employee experience outcome", OUTCOME_LABELS, key="slm_outcome"
-                    )
-                with slm_c2:
-                    wow_choice_slm = st.radio(
-                        "WoW predictors", ["Place (P)", "Individual (I)", "Both"],
-                        horizontal=True, key="slm_wow"
-                    )
-                with slm_c3:
-                    p_thresh_slm = st.slider(
-                        "P-value threshold", 0.01, 0.10, 0.05, 0.01, key="slm_pthresh"
-                    )
-
-                outcome_col_slm = OUTCOME_COLS[OUTCOME_LABELS.index(sel_outcome_slm)]
-                if "Place" in wow_choice_slm:
-                    pred_cols_slm = tuple(WOW_PLACE_COLS)
-                    col_to_lbl_slm = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
-                elif "Individual" in wow_choice_slm:
-                    pred_cols_slm = tuple(WOW_IND_COLS)
-                    col_to_lbl_slm = dict(zip(WOW_IND_COLS, WOW_THEMES))
-                else:
-                    pred_cols_slm = tuple(WOW_ALL_COLS)
-                    col_to_lbl_slm = dict(zip(WOW_ALL_COLS, WOW_ALL_LABELS))
-
-                elim_log, coef_df, fitted_slm, resid_slm, adj_r2_slm, r2_slm, n_slm, retained_cols = \
-                    run_backward_elimination(filtered, outcome_col_slm, pred_cols_slm, p_thresh_slm)
-
-                if coef_df is None:
-                    st.warning("All predictors were eliminated. Try raising the p-value threshold.")
-                else:
-                    # ── Summary cards ─────────────────────────────────────
-                    mc1, mc2, mc3, mc4 = st.columns(4)
-                    for col_ui, label, value in [
-                        (mc1, "Respondents",          f"n = {n_slm:,}"),
-                        (mc2, "Adjusted R²",           f"{adj_r2_slm:.3f}"),
-                        (mc3, "R²",                    f"{r2_slm:.3f}"),
-                        (mc4, "WoW themes retained",  str(len(retained_cols))),
-                    ]:
-                        with col_ui:
-                            st.markdown(
-                                f'<div class="metric-card"><p class="card-label">{label}</p>'
-                                f'<p class="card-value">{value}</p></div>',
-                                unsafe_allow_html=True,
-                            )
-
-                    # ── Elimination path chart ────────────────────────────
-                    st.markdown("#### Elimination Path — Adjusted R² at each step")
+                if _combined_betas:
+                    _sorted_combined = sorted(_combined_betas.items(), key=lambda x: x[1], reverse=True)
+                    _cb_labels = [x[0] for x in _sorted_combined]
+                    _cb_scores = [x[1] for x in _sorted_combined]
+                    st.markdown("#### Overall Top WoW Drivers Across All Outcome Groups (Latent Factors)")
                     st.caption(
-                        "Each point shows the model's Adjusted R² after removing the least significant "
-                        "predictor at that step. If the line stays flat or rises as predictors are removed, "
-                        "those predictors weren't adding real explanatory value. A meaningful drop signals "
-                        "the model has reached its core — further removal would cost too much."
+                        "Each bar shows the sum of standardised β values for that WoW theme across all "
+                        "latent factors where it was a confirmed driver, preserving sign. A consistently "
+                        "positive theme scores high; one with mixed effects across factors will partially "
+                        "cancel out. Red = net positive effect; blue = net negative."
                     )
-                    log_df = pd.DataFrame(elim_log)
-                    fig_elim = go.Figure(go.Scatter(
-                        x=log_df["Predictors in model"],
-                        y=log_df["Adj. R²"],
-                        mode="lines+markers",
-                        line=dict(color=PRIMARY, width=2),
-                        marker=dict(color=PRIMARY, size=8),
-                        hovertemplate=(
-                            "Predictors: %{x}<br>Adj. R² = %{y:.4f}"
-                            "<extra></extra>"
-                        ),
+                    fig_combined = go.Figure(go.Bar(
+                        x=_cb_labels,
+                        y=_cb_scores,
+                        text=[f"{s:+.2f}" for s in _cb_scores],
+                        textposition="outside",
+                        textfont=dict(color="#1A2B3C", size=10),
+                        marker_color=[RED if s >= 0 else PRIMARY for s in _cb_scores],
+                        hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
                     ))
-                    fig_elim.update_layout(
+                    fig_combined.update_layout(
                         font=dict(family="Inter", color="#1A2B3C"),
                         paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                        margin=dict(l=10, r=10, t=10, b=10),
+                        margin=dict(l=10, r=10, t=40, b=260),
                         xaxis=dict(
-                            title=dict(text="Number of predictors in model", font=dict(color="#1A2B3C")),
-                            autorange="reversed",
-                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                            tickangle=-40,
+                            tickfont=dict(color="#1A2B3C", size=10),
                         ),
                         yaxis=dict(
-                            title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
-                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                        ),
-                        height=320,
-                    )
-                    st.plotly_chart(fig_elim, use_container_width=True, key=f"slm_elim_{sel_outcome_slm}_{wow_choice_slm}")
-
-                    # ── Coefficient chart ─────────────────────────────────
-                    st.markdown("#### Final Model — Standardised Coefficients (β)")
-                    st.caption(
-                        "Each bar shows the standardised path coefficient for a retained WoW theme — how "
-                        "much the outcome changes (in standard deviation units) for a 1-SD increase in that "
-                        "WoW theme's rating, after controlling for all other retained themes. Longer bar = "
-                        "stronger independent effect. Red = positive (more of this WoW → better outcome); "
-                        "blue = negative."
-                    )
-                    coef_df["label"] = coef_df["col"].map(col_to_lbl_slm)
-                    coef_df["sig"] = coef_df["p_value"].apply(
-                        lambda p: "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-                    )
-                    coef_df["text"] = coef_df.apply(lambda r: f"{r['β_std']:.2f}{r['sig']}", axis=1)
-                    coef_sorted = coef_df.reindex(coef_df["β_std"].abs().sort_values().index)
-
-                    fig_coef = go.Figure(go.Bar(
-                        x=coef_sorted["β_std"],
-                        y=coef_sorted["label"],
-                        orientation="h",
-                        text=coef_sorted["text"],
-                        textposition="outside",
-                        textfont=dict(color="#1A2B3C", size=11),
-                        marker_color=[PRIMARY if v >= 0 else "#2E7096" for v in coef_sorted["β_std"]],
-                        hovertemplate="<b>%{y}</b><br>β (std) = %{x:.3f}<extra></extra>",
-                    ))
-                    fig_coef.update_layout(
-                        font=dict(family="Inter", color="#1A2B3C"),
-                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                        margin=dict(l=10, r=80, t=10, b=10),
-                        xaxis=dict(
-                            title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                            title=dict(text="Combined β", font=dict(color="#1A2B3C")),
                             zeroline=True, zerolinecolor="#D6E0EA",
                             tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
-                        yaxis=dict(tickfont=dict(color="#1A2B3C")),
-                        height=max(300, 36 * len(coef_sorted)),
+                        height=560,
                     )
-                    st.plotly_chart(fig_coef, use_container_width=True, key=f"slm_coef_{sel_outcome_slm}_{wow_choice_slm}")
+                    st.plotly_chart(fig_combined, use_container_width=True, key="lf_combined_bar")
 
-                    # ── Correlation scatter ───────────────────────────────
-                    with st.expander("Predicted vs Actual — Model Fit Scatter"):
+                ok_lf = {lv: res for lv, res in lf_results.items()
+                         if res["status"] == "ok"}
+
+                # ── Priority matrix ────────────────────────────────
+                st.markdown("---")
+                st.markdown("#### WoW Drivers by Outcome Group (Latent Factor)")
+                st.caption(
+                    "Each cell shows the standardised β for a WoW theme retained in that "
+                    "latent factor's final model. Blank = not a confirmed driver. "
+                    "Red = positive effect; blue = negative effect."
+                )
+
+                if not ok_lf:
+                    st.warning(
+                        "No latent factors produced a statistically reliable model. "
+                        "Try raising the p-value threshold."
+                    )
+                else:
+                    all_lf_retained = sorted(set(
+                        lf_col_to_lbl[c]
+                        for res in ok_lf.values()
+                        for c in res["retained"]
+                    ))
+                    lf_matrix_rows = {}
+                    for lv, res in ok_lf.items():
+                        lbl_to_beta = {
+                            row["label"]: row["β_std"]
+                            for _, row in res["coef_df"].iterrows()
+                        }
+                        lf_matrix_rows[lv] = {
+                            theme: lbl_to_beta.get(theme, np.nan)
+                            for theme in all_lf_retained
+                        }
+                    lf_priority_df = pd.DataFrame(lf_matrix_rows, index=all_lf_retained)
+                    lf_priority_df_T = lf_priority_df.T
+
+                    lf_beta_max = max(lf_priority_df.abs().max().max(), 0.01)
+
+                    fig_lf_matrix = go.Figure(go.Heatmap(
+                        z=lf_priority_df_T.values.tolist(),
+                        x=list(lf_priority_df_T.columns),
+                        y=list(lf_priority_df_T.index),
+                        colorscale=[
+                            [0.0, "#0F4C6B"],
+                            [0.5, "#F7F9FC"],
+                            [1.0, "#C0392B"],
+                        ],
+                        zmid=0,
+                        zmin=-lf_beta_max,
+                        zmax=lf_beta_max,
+                        text=[[
+                            f"{v:.2f}" if not np.isnan(v) else ""
+                            for v in row
+                        ] for row in lf_priority_df_T.values.tolist()],
+                        texttemplate="%{text}",
+                        textfont=dict(size=11, color="#1A2B3C"),
+                        hoverongaps=False,
+                        hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
+                        colorbar=dict(title="β", len=0.7),
+                    ))
+                    fig_lf_matrix.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=10, b=160),
+                        xaxis=dict(
+                            tickfont=dict(color="#1A2B3C", size=11),
+                            tickangle=-40,
+                            side="bottom",
+                        ),
+                        yaxis=dict(tickfont=dict(color="#1A2B3C", size=11)),
+                        height=max(300, 36 * len(ok_lf)),
+                    )
+                    st.plotly_chart(fig_lf_matrix, use_container_width=True,
+                                    key="lf_matrix")
+
+                # ── Per-factor detail ──────────────────────────────
+                st.markdown("---")
+                st.markdown("#### Breakdown per Outcome Group")
+
+                for lv in factor_scores_df.columns:
+                    res = lf_results.get(lv, {"status": "all_eliminated"})
+                    icon = "✓" if res["status"] == "ok" else "✗"
+                    with st.expander(f"{icon}  {lv}"):
+                        if res["status"] == "fail_sig_f":
+                            st.error(
+                                f"**Model not statistically reliable** — "
+                                f"Significance F = {res['sig_f']:.4f} (> 0.05)."
+                            )
+                            mc1, mc2, mc3 = st.columns(3)
+                            for col_ui, label, value in [
+                                (mc1, "Respondents", f"n = {res['n']:,}"),
+                                (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                            ]:
+                                with col_ui:
+                                    st.markdown(
+                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                        f'<p class="card-value">{value}</p></div>',
+                                        unsafe_allow_html=True)
+                        elif res["status"] == "all_eliminated":
+                            st.warning("All predictors were eliminated. Try raising the p-value threshold.")
+                        else:
+                            coef_df = res["coef_df"]
+                            mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                            for col_ui, label, value in [
+                                (mc1, "Respondents",          f"n = {res['n']:,}"),
+                                (mc2, "Significance F",       f"{res['sig_f']:.4f}"),
+                                (mc3, "Adj R² (full model)",  f"{res['adj_r2_full']:.3f}"),
+                                (mc4, "Adj R² (final model)", f"{res['adj_r2_final']:.3f}"),
+                                (mc5, "Confirmed drivers",    str(len(res["retained"]))),
+                            ]:
+                                with col_ui:
+                                    st.markdown(
+                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                        f'<p class="card-value">{value}</p></div>',
+                                        unsafe_allow_html=True)
+
+                            st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
+                            coef_sorted = coef_df.reindex(
+                                coef_df["β_std"].abs().sort_values(ascending=False).index
+                            )
+                            fig_lf_coef = go.Figure(go.Bar(
+                                x=coef_sorted["label"],
+                                y=coef_sorted["β_std"],
+                                text=coef_sorted["text"],
+                                textposition="outside",
+                                textfont=dict(color="#1A2B3C", size=10),
+                                marker_color=[
+                                    RED if v >= 0 else PRIMARY
+                                    for v in coef_sorted["β_std"]
+                                ],
+                                hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                            ))
+                            fig_lf_coef.update_layout(
+                                font=dict(family="Inter", color="#1A2B3C"),
+                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                margin=dict(l=10, r=10, t=40, b=160),
+                                xaxis=dict(
+                                    tickangle=-40,
+                                    tickfont=dict(color="#1A2B3C", size=10),
+                                ),
+                                yaxis=dict(
+                                    title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                                    zeroline=True, zerolinecolor="#D6E0EA",
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                height=420,
+                            )
+                            st.plotly_chart(fig_lf_coef, use_container_width=True,
+                                            key=f"lf_coef_{lv}")
+
+
+        with heatmaps_tab:
+                h1, h2, h3 = st.tabs([
+                    "WoW × Outcomes",
+                    "WoW × WoW",
+                    "Outcomes × Outcomes",
+                ])
+
+                # ── H1: Ways of Working × Outcomes ───────────────────
+                with h1:
+                    a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
+                    with a1_place:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
                         st.caption(
-                            "Each dot is one respondent: X = what the model predicted for them, "
-                            "Y = what they actually scored. The diagonal line shows perfect prediction. "
-                            "Dots closer to the line = better fit. The Pearson R shown tells you the "
-                            "strength of the linear relationship between predictions and actuals — "
-                            "R closer to 1.0 means the model's ranking of respondents matches reality well, "
-                            "even if the absolute predicted values don't land exactly on the 1–5 scale."
+                            "Each cell shows the Spearman correlation (r) between a Place-level Ways of Working "
+                            "theme (rows) and an employee experience outcome (columns). Place themes reflect the "
+                            "shared working environment — norms and behaviours that feel consistent across the team "
+                            "or directorate. Darker blue = stronger positive relationship; darker red = stronger "
+                            "negative. Values above ~0.2 are worth noting; above ~0.4 indicate a meaningful pattern. "
+                            "Read across a row to see which outcomes a given working norm connects to most strongly."
                         )
-                        fit_df_plot = filtered[list(pred_cols_slm) + [outcome_col_slm]].dropna().copy()
-                        fit_df_plot["predicted"] = fitted_slm
-                        fit_df_plot["actual"] = fit_df_plot[outcome_col_slm].astype(float)
-
-                        pearson_r = float(np.corrcoef(fit_df_plot["actual"], fit_df_plot["predicted"])[0, 1])
-
-                        rng = np.random.default_rng(42)
-                        jitter = rng.uniform(-0.15, 0.15, size=len(fit_df_plot))
-
-                        fig_scatter = go.Figure()
-                        fig_scatter.add_trace(go.Scatter(
-                            x=fit_df_plot["predicted"],
-                            y=fit_df_plot["actual"] + jitter,
-                            mode="markers",
-                            marker=dict(color=PRIMARY, opacity=0.25, size=5),
-                            hovertemplate="Predicted: %{x:.2f}<br>Actual: %{y:.1f}<extra></extra>",
-                            name="Respondents",
-                        ))
-                        axis_min, axis_max = 1.0, 5.0
-                        fig_scatter.add_trace(go.Scatter(
-                            x=[axis_min, axis_max], y=[axis_min, axis_max],
-                            mode="lines",
-                            line=dict(color="#C0392B", dash="dash", width=1.5),
-                            name="Perfect prediction",
-                        ))
-                        fig_scatter.add_annotation(
-                            x=0.04, y=0.95, xref="paper", yref="paper",
-                            text=f"<b>Pearson R = {pearson_r:.3f}</b>",
-                            showarrow=False,
-                            font=dict(color="#1A2B3C", size=13),
-                            bgcolor="#FFFFFF", bordercolor="#D6E0EA", borderwidth=1,
+                        mat = spearman_matrix(filtered, WOW_PLACE_COLS, OUTCOME_COLS)
+                        mat.index   = WOW_THEMES
+                        mat.columns = OUTCOME_LABELS
+                        render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                                        use_container_width=True, key="a1_place")
+                    with a1_ind:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
+                        st.caption(
+                            "Each cell shows the Spearman correlation (r) between an Individual-level Ways of Working "
+                            "theme (rows) and an employee experience outcome (columns). Individual themes reflect how "
+                            "each person personally operates — their own habits and approach, regardless of what the "
+                            "team around them does. Darker blue = stronger positive relationship; darker red = stronger "
+                            "negative. Compare this map with the Place heatmap to see whether environmental or personal "
+                            "behaviours are more strongly linked to each outcome."
                         )
-                        fig_scatter.update_layout(
+                        mat = spearman_matrix(filtered, WOW_IND_COLS, OUTCOME_COLS)
+                        mat.index   = WOW_THEMES
+                        mat.columns = OUTCOME_LABELS
+                        render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                                        use_container_width=True, key="a1_ind")
+
+                # ── H2: Ways of Working × Ways of Working ────────────
+                with h2:
+                    a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
+                    with a2_place:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
+                        st.caption(
+                            "Each cell shows the Spearman correlation between two Place-level Ways of Working themes. "
+                            "Strong positive correlations (dark blue) mean those norms tend to co-exist — groups that "
+                            "display one tend to display the other too. Strong negative correlations (dark red) indicate "
+                            "genuinely opposing orientations. Use this to identify clusters of related working norms "
+                            "and to flag themes that may be measuring the same underlying dimension before regression modelling."
+                        )
+                        mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
+                        mat.index = mat.columns = WOW_THEMES
+                        fill_diagonal_with_nan(mat)
+                        render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                        use_container_width=True, key="a2_place")
+                    with a2_ind:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
+                        st.caption(
+                            "Each cell shows the Spearman correlation between two Individual-level Ways of Working themes. "
+                            "Strong positive correlations mean those personal behaviours tend to appear together in the same "
+                            "people. Use this alongside the Place heatmap to see whether individual habits cluster differently "
+                            "from the team-level norms — a divergence can point to tension between personal style and the "
+                            "shared working environment."
+                        )
+                        mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
+                        mat.index = mat.columns = WOW_THEMES
+                        fill_diagonal_with_nan(mat)
+                        render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                                        use_container_width=True, key="a2_ind")
+
+                # ── H3: Outcomes × Outcomes ───────────────────────────
+                with h3:
+                    st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
+                    st.caption(
+                        "Each cell shows the Spearman correlation between two employee experience outcomes. "
+                        "Strong positive correlations indicate outcomes that tend to rise and fall together — "
+                        "suggesting they may be capturing the same underlying dimension of experience. "
+                        "Use this to understand how interconnected the outcome measures are before interpreting "
+                        "individual scores in isolation, and to inform how outcomes might be grouped for further analysis."
+                    )
+                    mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
+                    mat.index = mat.columns = OUTCOME_LABELS
+                    fill_diagonal_with_nan(mat)
+                    render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
+                    st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
+                                    use_container_width=True, key="a3")
+
+        # ── Descriptive Analysis group ────────────────────────
+        with desc_group:
+            a4, a5 = st.tabs([
+                "A2.1 · Ways of Working",
+                "A2.2 · Employee Experience",
+            ])
+
+            # ── A4: Ways of Working descriptive table ─────────────
+            with a4:
+                st.caption("Average scores for each Way of Working theme, split by Place and Individual, for the selected organisational level.")
+                _a4_q9 = sorted(q9_levels, key=lambda x: next(
+                    (i for i, o in enumerate(Q9_ORDER) if o.lower() == x.lower()), len(Q9_ORDER)))
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select org level</p>', unsafe_allow_html=True)
+                _a4_prev = st.session_state.get("a4_q9_chart", "Overall")
+                _a4_prev_df = filtered if _a4_prev == "Overall" else filtered[filtered["Q9"] == _a4_prev]
+                _a4_prev_pct = f" ({len(_a4_prev_df) / TOTAL_HEADCOUNT:.0%} of total)"
+                st.caption(f"{len(_a4_prev_df):,} respondents in **{_a4_prev}**{_a4_prev_pct}")
+                sel_a4 = st.radio("Select org level", ["Overall"] + _a4_q9, horizontal=True,
+                                  label_visibility="collapsed", key="a4_q9_chart")
+                chart_df = filtered if sel_a4 == "Overall" else filtered[filtered["Q9"] == sel_a4]
+                st.markdown("#### Ways of Working — Place vs. Individual per Org Level")
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a4_bar")
+
+                st.markdown("---")
+                st.markdown("#### Ways of Working — Comparison Across Org Level")
+                st.caption(
+                    "For each Way of Working theme, this chart shows the average score broken down by "
+                    "organisational level, so you can see where scores vary most across the hierarchy."
+                )
+                _a4_pi = st.radio("WoW type", ["Place (P)", "Individual (I)"], horizontal=True, key="a4_pi")
+                _a4_wow_cols   = WOW_PLACE_COLS if "Place" in _a4_pi else WOW_IND_COLS
+                _a4_wow_labels = WOW_THEMES
+                _a4_levels = ["Overall"] + _a4_q9
+                _a4_colours = ["#1A2B3C", "#0F4C6B", "#2E7096", "#5A9BB5", "#8DC0D4"]
+                fig_a4_cmp = go.Figure()
+                for lvl, col in zip(_a4_levels, _a4_colours):
+                    lvl_df = filtered if lvl == "Overall" else filtered[filtered["Q9"] == lvl]
+                    fig_a4_cmp.add_trace(go.Bar(
+                        name=lvl,
+                        x=_a4_wow_labels,
+                        y=[lvl_df[c].mean() for c in _a4_wow_cols],
+                        marker_color=col,
+                        hovertemplate=f"{lvl}<br>%{{x}}<br>Score: %{{y:.2f}}<extra></extra>",
+                    ))
+                fig_a4_cmp.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=10, t=10, b=180),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
+                        range=[0, 5.5],
+                        tickfont=dict(size=11, color="#1A2B3C"),
+                        gridcolor="#E8EEF2",
+                    ),
+                    legend=dict(
+                        orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        font=dict(color="#1A2B3C", size=12),
+                    ),
+                    height=560,
+                )
+                st.plotly_chart(fig_a4_cmp, use_container_width=True, key="a4_cmp_bar")
+
+            # ── A5: Sentiment Outcomes descriptive table ──────────
+            with a5:
+                st.caption("Average scores for each employee experience outcome for the selected organisational level, compared against the council-wide average.")
+                _a5_q9 = sorted(q9_levels, key=lambda x: next(
+                    (i for i, o in enumerate(Q9_ORDER) if o.lower() == x.lower()), len(Q9_ORDER)))
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                    'Select org level</p>', unsafe_allow_html=True)
+                _a5_prev = st.session_state.get("a5_q9_chart", "Overall")
+                _a5_prev_df = filtered if _a5_prev == "Overall" else filtered[filtered["Q9"] == _a5_prev]
+                _a5_prev_pct = f" ({len(_a5_prev_df) / TOTAL_HEADCOUNT:.0%} of total)"
+                st.caption(f"{len(_a5_prev_df):,} respondents in **{_a5_prev}**{_a5_prev_pct}")
+                sel_a5 = st.radio("Select org level", ["Overall"] + _a5_q9, horizontal=True,
+                                  label_visibility="collapsed", key="a5_q9_chart")
+                chart_df = filtered if sel_a5 == "Overall" else filtered[filtered["Q9"] == sel_a5]
+                overall_df = None if sel_a5 == "Overall" else filtered
+                st.markdown("#### Employee Experience — Average Scores by Organisational Level")
+                st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
+                                key=f"a5_bar_{sel_a5}")
+
+                st.markdown("---")
+                st.markdown("#### Employee Experience — Comparison Across Org Level")
+                st.caption(
+                    "For each employee experience outcome, this chart shows the average score broken "
+                    "down by organisational level, so you can see where scores vary most across the hierarchy."
+                )
+                _a5_levels = ["Overall"] + _a5_q9
+                _a5_colours = ["#1A2B3C", "#0F4C6B", "#2E7096", "#5A9BB5", "#8DC0D4"]
+                fig_a5_cmp = go.Figure()
+                for lvl, col in zip(_a5_levels, _a5_colours):
+                    lvl_df = filtered if lvl == "Overall" else filtered[filtered["Q9"] == lvl]
+                    fig_a5_cmp.add_trace(go.Bar(
+                        name=lvl,
+                        x=OUTCOME_LABELS,
+                        y=[lvl_df[c].mean() for c in OUTCOME_COLS],
+                        marker_color=col,
+                        hovertemplate=f"{lvl}<br>%{{x}}<br>Score: %{{y:.2f}}<extra></extra>",
+                    ))
+                fig_a5_cmp.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=10, t=10, b=180),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
+                        range=[0, 5.5],
+                        tickfont=dict(size=11, color="#1A2B3C"),
+                        gridcolor="#E8EEF2",
+                    ),
+                    legend=dict(
+                        orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                        font=dict(color="#1A2B3C", size=12),
+                    ),
+                    height=560,
+                )
+                st.plotly_chart(fig_a5_cmp, use_container_width=True, key="a5_cmp_bar")
+
+            # ── A6: By Q9 Organisational Level ───────────────────
+
+
+    # ═══════════════════════════════════════════════════════════════════════════════════
+    # SECTION B
+    # ═══════════════════════════════════════════════════════════════════════════════════
+    with sec_b:
+        if not directorates:
+            st.warning("No directorate data found in this file.")
+            st.stop()
+
+        b_corr_group, b_desc_group = st.tabs(["B1 · Drivers Analysis", "B2 · Descriptive Analysis"])
+
+        # ── Correlation Analysis group ────────────────────────
+        with b_corr_group:
+            # ── ODA tabs at the top level ─────────────────────────
+            oda_outcomes_tab, oda_lf_tab, heatmaps_tab = st.tabs([
+                "B1.1 · Individual Outcomes",
+                "B1.2 · Grouped Outcomes",
+                "B1.3 · Correlational Heatmaps",
+            ])
+
+            with oda_outcomes_tab:
+                st.caption(
+                    "For each employee experience outcome, this analysis: (1) keeps only WoW themes "
+                    "with |r| ≥ the correlation floor — weak predictors are excluded before modelling "
+                    "begins; (2) runs a multiple regression with all remaining themes simultaneously "
+                    "and checks whether the overall model is statistically reliable (Significance F < 0.05); "
+                    "(3) progressively removes the weakest contributors until only those with an independent, "
+                    "meaningful relationship remain. The priority matrix shows the confirmed behavioural "
+                    "drivers across all outcomes at a glance."
+                )
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+                    'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
+                    unsafe_allow_html=True,
+                )
+                _preview_dir = st.session_state.get("dir_selector_corr", directorates[0])
+                _preview_df  = filtered[filtered["Q1"] == _preview_dir]
+                _preview_hc  = HEADCOUNT.get(_preview_dir)
+                _preview_pct = f" ({len(_preview_df) / _preview_hc:.0%} of headcount)" if _preview_hc else ""
+                st.caption(f"{len(_preview_df):,} respondents in **{_preview_dir}**{_preview_pct}")
+                selected_dir = st.radio(
+                    "Directorate", directorates, horizontal=True,
+                    label_visibility="collapsed", key="dir_selector_corr",
+                )
+                dir_df = filtered[filtered["Q1"] == selected_dir]
+                n_dir  = len(dir_df)
+
+                # ── Controls ──────────────────────────────────────────────
+                oda_c1, oda_c2, oda_c3 = st.columns([3, 2, 2])
+                with oda_c1:
+                    wow_choice_oda = st.radio(
+                        "WoW predictors", ["Place (P)", "Individual (I)"],
+                        horizontal=True, key="b_oda_wow"
+                    )
+                with oda_c2:
+                    r_thresh_oda = st.slider(
+                        "Correlation floor |r| ≥", 0.00, 0.40, 0.20, 0.05, key="b_oda_r"
+                    )
+                    st.markdown(
+                        '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                        'Recommended: 0.20</p>',
+                        unsafe_allow_html=True)
+                with oda_c3:
+                    p_thresh_oda = st.slider(
+                        "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="b_oda_p"
+                    )
+                    st.markdown(
+                        '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                        'Recommended: 0.05</p>',
+                        unsafe_allow_html=True)
+
+                if "Place" in wow_choice_oda:
+                    oda_pred_cols = tuple(WOW_PLACE_COLS)
+                    oda_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+                else:
+                    oda_pred_cols = tuple(WOW_IND_COLS)
+                    oda_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
+                oda_pred_labels = tuple(oda_col_to_lbl[c] for c in oda_pred_cols)
+
+                with st.spinner("Running outcome driver analysis…"):
+                    oda_results = run_driver_analysis_batch(
+                        dir_df,
+                        tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                        oda_pred_cols, oda_pred_labels,
+                        r_thresh_oda, p_thresh_oda,
+                    )
+
+                ok_outcomes = {lbl: res for lbl, res in oda_results.items()
+                               if res["status"] == "ok"}
+
+                _oda_combined = {}
+                for _res in ok_outcomes.values():
+                    for _, _row in _res["coef_df"].iterrows():
+                        _lbl = _row["label"]
+                        _oda_combined[_lbl] = _oda_combined.get(_lbl, 0.0) + _row["β_std"]
+                if _oda_combined:
+                    _oda_sorted = sorted(_oda_combined.items(), key=lambda x: x[1], reverse=True)
+                    _oda_labels = [x[0] for x in _oda_sorted]
+                    _oda_scores = [x[1] for x in _oda_sorted]
+                    st.markdown("#### Top WoW Drivers — Combined Across All Outcomes")
+                    st.caption(
+                        "Each bar shows the sum of standardised β values for that WoW theme across all "
+                        "individual outcome models where it was a confirmed driver, preserving sign. "
+                        "A consistently positive theme scores high; mixed effects partially cancel out. "
+                        "Red = net positive effect; blue = net negative."
+                    )
+                    _fig_oda_c = go.Figure(go.Bar(
+                        x=_oda_labels,
+                        y=_oda_scores,
+                        text=[f"{s:+.2f}" for s in _oda_scores],
+                        textposition="outside",
+                        textfont=dict(color="#1A2B3C", size=10),
+                        marker_color=[RED if s >= 0 else PRIMARY for s in _oda_scores],
+                        hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                    ))
+                    _fig_oda_c.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=40, b=260),
+                        xaxis=dict(tickangle=-40, tickfont=dict(color="#1A2B3C", size=10)),
+                        yaxis=dict(
+                            title=dict(text="Combined β", font=dict(color="#1A2B3C")),
+                            zeroline=True, zerolinecolor="#D6E0EA",
+                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        height=560,
+                    )
+                    st.plotly_chart(_fig_oda_c, use_container_width=True, key="b_oda_combined_bar")
+
+                # ── Priority matrix ────────────────────────────────────────
+                st.markdown("---")
+                st.markdown("#### Top Ways of Working Drivers — Per Outcome")
+                st.caption(
+                    "Each cell shows the standardised β for a WoW theme that survived backward "
+                    "elimination for that outcome's model. Blank = not a confirmed driver (below "
+                    "the correlation floor or eliminated). Blue = positive effect (more of this "
+                    "behaviour → better outcome score); red = negative effect."
+                )
+
+                if not ok_outcomes:
+                    st.warning(
+                        "No outcomes produced a statistically reliable model with the current settings. "
+                        "Try lowering the correlation floor or raising the p-value threshold."
+                    )
+                else:
+                    all_retained_labels = sorted(set(
+                        oda_col_to_lbl[c]
+                        for res in ok_outcomes.values()
+                        for c in res["retained"]
+                    ))
+                    matrix_rows = {}
+                    for out_lbl, res in ok_outcomes.items():
+                        lbl_to_beta = {
+                            row["label"]: row["β_std"]
+                            for _, row in res["coef_df"].iterrows()
+                        }
+                        matrix_rows[out_lbl] = {
+                            theme: lbl_to_beta.get(theme, np.nan)
+                            for theme in all_retained_labels
+                        }
+                    priority_df = pd.DataFrame(matrix_rows, index=all_retained_labels)
+                    _ordered_outcomes = [lbl for lbl in OUTCOME_LABELS if lbl in priority_df.columns]
+                    priority_df = priority_df[_ordered_outcomes]
+
+                    beta_abs_max = priority_df.abs().max().max()
+                    beta_abs_max = max(beta_abs_max, 0.01)
+
+                    priority_df_T = priority_df.T  # outcomes as rows, WoW as columns
+                    fig_matrix = go.Figure(go.Heatmap(
+                        z=priority_df_T.values.tolist(),
+                        x=list(priority_df_T.columns),
+                        y=list(priority_df_T.index),
+                        colorscale=[
+                            [0.0,  "#0F4C6B"],
+                            [0.5,  "#F7F9FC"],
+                            [1.0,  "#C0392B"],
+                        ],
+                        zmid=0,
+                        zmin=-beta_abs_max,
+                        zmax=beta_abs_max,
+                        text=[[
+                            f"{v:.2f}" if not np.isnan(v) else ""
+                            for v in row
+                        ] for row in priority_df_T.values.tolist()],
+                        texttemplate="%{text}",
+                        textfont=dict(size=11, color="#1A2B3C"),
+                        hoverongaps=False,
+                        hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
+                        colorbar=dict(title="β", len=0.7),
+                    ))
+                    fig_matrix.update_layout(
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=10, b=160),
+                        xaxis=dict(
+                            tickfont=dict(color="#1A2B3C", size=11),
+                            tickangle=-40,
+                            side="bottom",
+                        ),
+                        yaxis=dict(tickfont=dict(color="#1A2B3C", size=11), autorange="reversed"),
+                        height=max(350, 36 * len(ok_outcomes)),
+                    )
+                    st.plotly_chart(fig_matrix, use_container_width=True, key="b_oda_matrix")
+
+                # ── Per-outcome detail ─────────────────────────────────────
+                st.markdown("---")
+                st.markdown('<p style="font-size:14px;font-weight:600;color:#5A7080;margin-top:8px;margin-bottom:4px">Breakdown per Outcome</p>', unsafe_allow_html=True)
+
+                for out_lbl in OUTCOME_LABELS:
+                    res = oda_results.get(out_lbl, {"status": "no_predictors"})
+                    status = res["status"]
+                    icon = "✓" if status == "ok" else "✗"
+                    with st.expander(f"{icon}  {out_lbl}"):
+                        if status == "no_predictors":
+                            st.info(
+                                f"No WoW themes reached |r| ≥ {r_thresh_oda:.2f} for this outcome. "
+                                "No regression was run."
+                            )
+                        elif status == "fail_sig_f":
+                            st.error(
+                                f"**Model not statistically reliable** — Significance F = {res['sig_f']:.4f} "
+                                f"(> 0.05). The {res['n_eligible']} predictors that cleared the correlation "
+                                f"floor did not collectively explain this outcome reliably. "
+                                "Do not read into the individual coefficients."
+                            )
+                            mc1, mc2, mc3 = st.columns(3)
+                            for col_ui, label, value in [
+                                (mc1, "Respondents", f"n = {res['n']:,}"),
+                                (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                            ]:
+                                with col_ui:
+                                    st.markdown(
+                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                        f'<p class="card-value">{value}</p></div>',
+                                        unsafe_allow_html=True)
+                        elif status == "all_eliminated":
+                            st.warning(
+                                "All predictors were eliminated during backward stepwise. "
+                                "Try raising the p-value threshold."
+                            )
+                            mc1, mc2, mc3 = st.columns(3)
+                            for col_ui, label, value in [
+                                (mc1, "Respondents", f"n = {res['n']:,}"),
+                                (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                            ]:
+                                with col_ui:
+                                    st.markdown(
+                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                        f'<p class="card-value">{value}</p></div>',
+                                        unsafe_allow_html=True)
+                        else:
+                            coef_df = res["coef_df"]
+                            # Summary cards
+                            mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                            for col_ui, label, value in [
+                                (mc1, "Respondents",         f"n = {res['n']:,}"),
+                                (mc2, "Significance F",      f"{res['sig_f']:.4f}"),
+                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                                (mc4, "Adj R² (final model)",f"{res['adj_r2_final']:.3f}"),
+                                (mc5, "Confirmed drivers",   str(len(res["retained"]))),
+                            ]:
+                                with col_ui:
+                                    st.markdown(
+                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                        f'<p class="card-value">{value}</p></div>',
+                                        unsafe_allow_html=True)
+
+                            # β coefficient chart
+                            st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
+                            st.caption(
+                                "Each bar shows a retained WoW theme's standardised β and the equivalent "
+                                "point change on the 1–5 outcome scale (Δ pts). β reflects the independent "
+                                "contribution of that theme after controlling for all others — a 1 SD shift "
+                                "in the WoW theme produces the shown point change in the outcome. "
+                                "* p<0.05  ** p<0.01  *** p<0.001"
+                            )
+                            coef_sorted = coef_df.reindex(
+                                coef_df["β_std"].abs().sort_values(ascending=False).index
+                            )
+                            fig_coef = go.Figure(go.Bar(
+                                x=coef_sorted["label"],
+                                y=coef_sorted["β_std"],
+                                text=coef_sorted["text"],
+                                textposition="outside",
+                                textfont=dict(color="#1A2B3C", size=10),
+                                marker_color=[
+                                    RED if v >= 0 else PRIMARY
+                                    for v in coef_sorted["β_std"]
+                                ],
+                                hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                            ))
+                            fig_coef.update_layout(
+                                font=dict(family="Inter", color="#1A2B3C"),
+                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                margin=dict(l=10, r=10, t=40, b=160),
+                                xaxis=dict(
+                                    tickangle=-40,
+                                    tickfont=dict(color="#1A2B3C", size=10),
+                                ),
+                                yaxis=dict(
+                                    title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                                    zeroline=True, zerolinecolor="#D6E0EA",
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                height=420,
+                            )
+                            st.plotly_chart(fig_coef, use_container_width=True,
+                                            key=f"b_oda_coef_{out_lbl}")
+
+                            # Elimination path
+                            st.markdown("##### Elimination Path — Adj R² at each step")
+                            st.caption(
+                                "Each point shows the model's Adjusted R² after removing the least "
+                                "significant predictor at that step. A flat or rising line means those "
+                                "predictors weren't earning their place. A drop signals the core has "
+                                "been reached."
+                            )
+                            log_df = pd.DataFrame(res["elim_log"])
+                            fig_elim = go.Figure(go.Scatter(
+                                x=log_df["Predictors in model"],
+                                y=log_df["Adj. R²"],
+                                mode="lines+markers",
+                                line=dict(color=PRIMARY, width=2),
+                                marker=dict(color=PRIMARY, size=8),
+                                hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
+                            ))
+                            fig_elim.update_layout(
+                                font=dict(family="Inter", color="#1A2B3C"),
+                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                margin=dict(l=10, r=10, t=10, b=10),
+                                xaxis=dict(
+                                    title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
+                                    autorange="reversed",
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                yaxis=dict(
+                                    title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                height=300,
+                            )
+                            st.plotly_chart(fig_elim, use_container_width=True,
+                                            key=f"b_oda_elim_{out_lbl}")
+
+            with oda_lf_tab:
+                st.caption(
+                    "Runs the same multiple regression pipeline as the Outcomes tab, but uses "
+                    "the latent factor scores (LV1, LV2 …) derived from the EFA in the "
+                    "Outcome Clusters tab as the dependent variables. All WoW themes enter the "
+                    "model directly — no correlation floor is applied since there is no "
+                    "pre-existing heatmap for latent factors. Backward elimination then removes "
+                    "non-significant predictors until only confirmed drivers remain."
+                )
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+                    'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
+                    unsafe_allow_html=True,
+                )
+                _lf_prev_dir = st.session_state.get("b_dir_selector_lf", directorates[0])
+                _lf_prev_df  = filtered[filtered["Q1"] == _lf_prev_dir]
+                _lf_prev_hc  = HEADCOUNT.get(_lf_prev_dir)
+                _lf_prev_pct = f" ({len(_lf_prev_df) / _lf_prev_hc:.0%} of headcount)" if _lf_prev_hc else ""
+                st.caption(f"{len(_lf_prev_df):,} respondents in **{_lf_prev_dir}**{_lf_prev_pct}")
+                selected_dir = st.radio(
+                    "Directorate", directorates, horizontal=True,
+                    label_visibility="collapsed", key="b_dir_selector_lf",
+                )
+                dir_df = filtered[filtered["Q1"] == selected_dir]
+                n_dir  = len(dir_df)
+
+                # ── Controls row 1: WoW type + p-value ────────────────
+                lf_c1, lf_c2, lf_c3 = st.columns([3, 2, 2])
+                with lf_c1:
+                    wow_choice_lf = st.radio(
+                        "WoW predictors", ["Place (P)", "Individual (I)"],
+                        horizontal=True, key="b_lf_wow"
+                    )
+                with lf_c3:
+                    p_thresh_lf = st.slider(
+                        "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="b_lf_p"
+                    )
+                    st.markdown(
+                        '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                        'Recommended: 0.05</p>',
+                        unsafe_allow_html=True)
+
+                # ── Controls row 2: n_factors + factor preview ─────────
+                lf_r2_left, _ = st.columns([2, 5])
+                with lf_r2_left:
+                    lf_n_factors = st.slider(
+                        "Number of latent factors", 1, 6, 3, key="b_lf_nfactors"
+                    )
+                with st.expander("Scree Plot — How many hidden factors exist in your outcome data?"):
+                    _sem_clean_b = dir_df[OUTCOME_COLS].dropna()
+                    if len(_sem_clean_b) < 20:
+                        st.warning("Too few complete responses for factor analysis.")
+                    else:
+                        _corr_b = np.corrcoef(_sem_clean_b.values.T)
+                        _eig_b = sorted(np.linalg.eigvalsh(_corr_b).tolist(), reverse=True)
+                        st.caption(
+                            "Each point is one potential factor and its height shows how much shared information "
+                            "it captures. Factors above the dashed line (eigenvalue > 1) are worth keeping. "
+                            "Look for where the curve flattens — that bend marks your real underlying themes."
+                        )
+                        _fig_scree_b = go.Figure([go.Scatter(
+                            x=list(range(1, len(_eig_b) + 1)), y=_eig_b,
+                            mode="lines+markers",
+                            line=dict(color=PRIMARY, width=2),
+                            marker=dict(color=PRIMARY, size=7),
+                            hovertemplate="Factor %{x}<br>Eigenvalue = %{y:.3f}<extra></extra>",
+                        )])
+                        _fig_scree_b.add_hline(y=1, line_dash="dash", line_color="#C0392B",
+                            annotation_text="Kaiser criterion (λ = 1)",
+                            annotation_font=dict(color="#C0392B", size=11))
+                        _fig_scree_b.update_layout(
                             font=dict(family="Inter", color="#1A2B3C"),
                             paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                            margin=dict(l=10, r=10, t=10, b=10),
+                            margin=dict(l=10, r=10, t=20, b=10),
+                            xaxis=dict(title=dict(text="Factor", font=dict(color="#1A2B3C")),
+                                       tickvals=list(range(1, len(_eig_b) + 1)),
+                                       tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
+                            yaxis=dict(title=dict(text="Eigenvalue", font=dict(color="#1A2B3C")),
+                                       tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2"),
+                            height=300,
+                        )
+                        st.plotly_chart(_fig_scree_b, use_container_width=True, key="b_sem_scree")
+                if "Place" in wow_choice_lf:
+                    lf_pred_cols = tuple(WOW_PLACE_COLS)
+                    lf_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+                else:
+                    lf_pred_cols = tuple(WOW_IND_COLS)
+                    lf_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
+                lf_pred_labels = tuple(lf_col_to_lbl[c] for c in lf_pred_cols)
+
+                outcome_clean_lf = dir_df[OUTCOME_COLS].dropna()
+                if len(outcome_clean_lf) < 20:
+                    st.warning("Too few complete responses for factor analysis.")
+                else:
+                    with st.spinner("Computing factor scores and running regressions…"):
+                        factor_scores_df = compute_factor_scores(
+                            dir_df[OUTCOME_COLS], lf_n_factors
+                        )
+                        lf_results = run_lf_driver_analysis(
+                            dir_df, factor_scores_df,
+                            lf_pred_cols, lf_pred_labels, p_thresh_lf
+                        )
+
+                    # ── Factor preview + WoW drivers ──────────────────
+                    _lf_loadings, _ = run_efa(dir_df[OUTCOME_COLS], lf_n_factors)
+                    _lf_loadings.index = OUTCOME_LABELS
+                    _lf_cols = [f"LV{i+1}" for i in range(lf_n_factors)]
+                    _lf_max = _lf_loadings.abs().max(axis=1)
+                    _lf_primary = _lf_loadings.abs().idxmax(axis=1).copy()
+                    _lf_primary[_lf_max < 0.3] = "Unassigned"
+                    _lf_members = {lv: [] for lv in _lf_cols}
+                    for _outcome, _lv in _lf_primary.items():
+                        if _lv != "Unassigned":
+                            _lf_members[_lv].append(
+                                (_outcome, _lf_loadings.loc[_outcome, _lv])
+                            )
+                    for _lv in _lf_members:
+                        _lf_members[_lv].sort(key=lambda x: abs(x[1]), reverse=True)
+
+                    # ── Combined top WoW drivers across all latent factors ──
+                    _combined_betas: dict = {}
+                    for _lv, _res in lf_results.items():
+                        if _res.get("status") == "ok":
+                            for _, _row in _res["coef_df"].iterrows():
+                                _lbl = _row["label"]
+                                _combined_betas[_lbl] = _combined_betas.get(_lbl, 0.0) + _row["β_std"]
+                    _preview_cols = st.columns(lf_n_factors)
+                    for _col_ui, _lv in zip(_preview_cols, _lf_cols):
+                        _items_html = "".join(
+                            f'<p class="card-sub">· {m} ({v:.2f})</p>'
+                            for m, v in _lf_members[_lv]
+                        ) or '<p class="card-sub"><em>None assigned</em></p>'
+                        _res = lf_results.get(_lv, {})
+                        if _res.get("status") == "ok":
+                            _coef = _res["coef_df"].copy()
+                            _coef_sorted = _coef.reindex(
+                                _coef["β_std"].abs().sort_values(ascending=False).index
+                            )
+                            _drivers_html = "".join(
+                                f'<p class="card-sub">· {row["label"]} '
+                                f'(<span style="color:{"#C0392B" if row["β_std"] >= 0 else "#2980B9"};font-weight:600">'
+                                f'{row["β_std"]:+.2f}</span>)</p>'
+                                for _, row in _coef_sorted.iterrows()
+                            )
+                        elif _res.get("status") == "fail_sig_f":
+                            _drivers_html = (
+                                f'<p class="card-sub"><em>Model not reliable '
+                                f'(Sig. F = {_res["sig_f"]:.3f})</em></p>'
+                            )
+                        else:
+                            _drivers_html = '<p class="card-sub"><em>No confirmed drivers</em></p>'
+                        with _col_ui:
+                            st.markdown(
+                                f'<div class="metric-card-lg">'
+                                f'<p class="card-label">{_lv}</p>'
+                                f'{_items_html}'
+                                f'<p class="card-label" style="margin-top:10px">'
+                                f'Top WoW drivers (β)</p>'
+                                f'{_drivers_html}'
+                                f'</div>',
+                                unsafe_allow_html=True)
+
+                    if _combined_betas:
+                        _sorted_combined = sorted(_combined_betas.items(), key=lambda x: x[1], reverse=True)
+                        _cb_labels = [x[0] for x in _sorted_combined]
+                        _cb_scores = [x[1] for x in _sorted_combined]
+                        st.markdown("#### Overall Top WoW Drivers Across All Outcome Groups (Latent Factors)")
+                        st.caption(
+                            "Each bar shows the sum of standardised β values for that WoW theme across all "
+                            "latent factors where it was a confirmed driver, preserving sign. A consistently "
+                            "positive theme scores high; one with mixed effects across factors will partially "
+                            "cancel out. Red = net positive effect; blue = net negative."
+                        )
+                        fig_combined = go.Figure(go.Bar(
+                            x=_cb_labels,
+                            y=_cb_scores,
+                            text=[f"{s:+.2f}" for s in _cb_scores],
+                            textposition="outside",
+                            textfont=dict(color="#1A2B3C", size=10),
+                            marker_color=[RED if s >= 0 else PRIMARY for s in _cb_scores],
+                            hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                        ))
+                        fig_combined.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=40, b=260),
                             xaxis=dict(
-                                title=dict(text="Model's predicted score", font=dict(color="#1A2B3C")),
-                                range=[axis_min - 0.2, axis_max + 0.2],
-                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                tickangle=-40,
+                                tickfont=dict(color="#1A2B3C", size=10),
                             ),
                             yaxis=dict(
-                                title=dict(text="Actual score", font=dict(color="#1A2B3C")),
-                                range=[axis_min - 0.3, axis_max + 0.3],
+                                title=dict(text="Combined β", font=dict(color="#1A2B3C")),
+                                zeroline=True, zerolinecolor="#D6E0EA",
                                 tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
                             ),
-                            legend=dict(font=dict(color="#1A2B3C")),
-                            height=400,
+                            height=560,
                         )
-                        st.plotly_chart(fig_scatter, use_container_width=True, key=f"slm_scatter_{sel_outcome_slm}_{wow_choice_slm}")
+                        st.plotly_chart(fig_combined, use_container_width=True, key="b_lf_combined_bar")
 
-                    # ── Elimination log ───────────────────────────────────
-                    with st.expander("Elimination log"):
-                        st.caption(
-                            "The full step-by-step record of which predictor was removed at each iteration "
-                            "and what the Adjusted R² was after that removal. Step 0 is the full model."
+                    ok_lf = {lv: res for lv, res in lf_results.items()
+                             if res["status"] == "ok"}
+
+                    # ── Priority matrix ────────────────────────────────
+                    st.markdown("---")
+                    st.markdown("#### WoW Drivers by Outcome Group (Latent Factor)")
+                    st.caption(
+                        "Each cell shows the standardised β for a WoW theme retained in that "
+                        "latent factor's final model. Blank = not a confirmed driver. "
+                        "Red = positive effect; blue = negative effect."
+                    )
+
+                    if not ok_lf:
+                        st.warning(
+                            "No latent factors produced a statistically reliable model. "
+                            "Try raising the p-value threshold."
                         )
-                        st.dataframe(log_df, use_container_width=True, hide_index=True)
+                    else:
+                        all_lf_retained = sorted(set(
+                            lf_col_to_lbl[c]
+                            for res in ok_lf.values()
+                            for c in res["retained"]
+                        ))
+                        lf_matrix_rows = {}
+                        for lv, res in ok_lf.items():
+                            lbl_to_beta = {
+                                row["label"]: row["β_std"]
+                                for _, row in res["coef_df"].iterrows()
+                            }
+                            lf_matrix_rows[lv] = {
+                                theme: lbl_to_beta.get(theme, np.nan)
+                                for theme in all_lf_retained
+                            }
+                        lf_priority_df = pd.DataFrame(lf_matrix_rows, index=all_lf_retained)
+                        lf_priority_df_T = lf_priority_df.T
 
+                        lf_beta_max = max(lf_priority_df.abs().max().max(), 0.01)
 
-        # ── A2: Ways of Working × Ways of Working ────────────
-        with a2:
-            a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
-            with a2_place:
-                st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
-                mat = make_writable_matrix(spearman_matrix(filtered, WOW_PLACE_COLS, WOW_PLACE_COLS))
-                mat.index = mat.columns = WOW_THEMES
-                fill_diagonal_with_nan(mat)
-                render_heatmap_cards(n_total, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                use_container_width=True, key="a2_place")
-            with a2_ind:
-                st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
-                mat = make_writable_matrix(spearman_matrix(filtered, WOW_IND_COLS, WOW_IND_COLS))
-                mat.index = mat.columns = WOW_THEMES
-                fill_diagonal_with_nan(mat)
-                render_heatmap_cards(n_total, mat)
-                st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                use_container_width=True, key="a2_ind")
+                        fig_lf_matrix = go.Figure(go.Heatmap(
+                            z=lf_priority_df_T.values.tolist(),
+                            x=list(lf_priority_df_T.columns),
+                            y=list(lf_priority_df_T.index),
+                            colorscale=[
+                                [0.0, "#0F4C6B"],
+                                [0.5, "#F7F9FC"],
+                                [1.0, "#C0392B"],
+                            ],
+                            zmid=0,
+                            zmin=-lf_beta_max,
+                            zmax=lf_beta_max,
+                            text=[[
+                                f"{v:.2f}" if not np.isnan(v) else ""
+                                for v in row
+                            ] for row in lf_priority_df_T.values.tolist()],
+                            texttemplate="%{text}",
+                            textfont=dict(size=11, color="#1A2B3C"),
+                            hoverongaps=False,
+                            hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
+                            colorbar=dict(title="β", len=0.7),
+                        ))
+                        fig_lf_matrix.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=10, b=160),
+                            xaxis=dict(
+                                tickfont=dict(color="#1A2B3C", size=11),
+                                tickangle=-40,
+                                side="bottom",
+                            ),
+                            yaxis=dict(tickfont=dict(color="#1A2B3C", size=11)),
+                            height=max(300, 36 * len(ok_lf)),
+                        )
+                        st.plotly_chart(fig_lf_matrix, use_container_width=True,
+                                        key="b_lf_matrix")
 
-        # ── A3: Outcomes × Outcomes ───────────────────────────
-        with a3:
-            st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
-            mat = make_writable_matrix(spearman_matrix(filtered, OUTCOME_COLS, OUTCOME_COLS))
-            mat.index = mat.columns = OUTCOME_LABELS
-            fill_diagonal_with_nan(mat)
-            render_heatmap_cards(n_total, mat)
-            st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                            use_container_width=True, key="a3")
+                    # ── Per-factor detail ──────────────────────────────
+                    st.markdown("---")
+                    st.markdown("#### Per-Factor Detail")
 
-    # ── Descriptive Analysis group ────────────────────────
-    with desc_group:
-        a4, a5, a6 = st.tabs([
-            "A4 · Ways of Working",
-            "A5 · Sentiment Outcomes",
-            "A6 · By Org Level",
-        ])
+                    for lv in factor_scores_df.columns:
+                        res = lf_results.get(lv, {"status": "all_eliminated"})
+                        icon = "✓" if res["status"] == "ok" else "✗"
+                        with st.expander(f"{icon}  {lv}"):
+                            if res["status"] == "fail_sig_f":
+                                st.error(
+                                    f"**Model not statistically reliable** — "
+                                    f"Significance F = {res['sig_f']:.4f} (> 0.05)."
+                                )
+                                mc1, mc2, mc3 = st.columns(3)
+                                for col_ui, label, value in [
+                                    (mc1, "Respondents", f"n = {res['n']:,}"),
+                                    (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                    (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                                ]:
+                                    with col_ui:
+                                        st.markdown(
+                                            f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                            f'<p class="card-value">{value}</p></div>',
+                                            unsafe_allow_html=True)
+                            elif res["status"] == "all_eliminated":
+                                st.warning("All predictors were eliminated. Try raising the p-value threshold.")
+                            else:
+                                coef_df = res["coef_df"]
+                                mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                                for col_ui, label, value in [
+                                    (mc1, "Respondents",          f"n = {res['n']:,}"),
+                                    (mc2, "Significance F",       f"{res['sig_f']:.4f}"),
+                                    (mc3, "Adj R² (full model)",  f"{res['adj_r2_full']:.3f}"),
+                                    (mc4, "Adj R² (final model)", f"{res['adj_r2_final']:.3f}"),
+                                    (mc5, "Confirmed drivers",    str(len(res["retained"]))),
+                                ]:
+                                    with col_ui:
+                                        st.markdown(
+                                            f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                            f'<p class="card-value">{value}</p></div>',
+                                            unsafe_allow_html=True)
 
-        # ── A4: Ways of Working descriptive table ─────────────
-        with a4:
-            st.markdown("#### Ways of Working — Average Scores by Directorate")
-            a4_chart, a4_table = st.tabs(["Bar Chart", "Table"])
-            with a4_chart:
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                    'Select group</p>', unsafe_allow_html=True)
-                dir_options = ["Overall"] + list(directorates)
-                chart_dir = st.radio("Select group", dir_options, horizontal=True,
-                                     label_visibility="collapsed", key="a4_dir_chart")
-                chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
-                n_col, _ = st.columns([1, 5])
-                with n_col:
-                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a4_bar")
-            with a4_table:
-                tdf, styler = build_wow_table(filtered, "Q1", directorates)
-                wow_table_cards(n_total, tdf)
-                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                            "**P** = Place average &nbsp;|&nbsp; "
-                            "**Δ** = I − P")
-                st.dataframe(styler, use_container_width=True, height=720)
+                                st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
+                                coef_sorted = coef_df.reindex(
+                                    coef_df["β_std"].abs().sort_values(ascending=False).index
+                                )
+                                fig_lf_coef = go.Figure(go.Bar(
+                                    x=coef_sorted["label"],
+                                    y=coef_sorted["β_std"],
+                                    text=coef_sorted["text"],
+                                    textposition="outside",
+                                    textfont=dict(color="#1A2B3C", size=10),
+                                    marker_color=[
+                                        RED if v >= 0 else PRIMARY
+                                        for v in coef_sorted["β_std"]
+                                    ],
+                                    hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                                ))
+                                fig_lf_coef.update_layout(
+                                    font=dict(family="Inter", color="#1A2B3C"),
+                                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                    margin=dict(l=10, r=10, t=40, b=160),
+                                    xaxis=dict(
+                                        tickangle=-40,
+                                        tickfont=dict(color="#1A2B3C", size=10),
+                                    ),
+                                    yaxis=dict(
+                                        title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                                        zeroline=True, zerolinecolor="#D6E0EA",
+                                        tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                    ),
+                                    height=420,
+                                )
+                                st.plotly_chart(fig_lf_coef, use_container_width=True,
+                                                key=f"b_lf_coef_{lv}")
 
-        # ── A5: Sentiment Outcomes descriptive table ──────────
-        with a5:
-            st.markdown("#### Employee Experience — Average Scores by Directorate")
-            a5_chart, a5_table = st.tabs(["Bar Chart", "Table"])
-            with a5_chart:
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                    'Select group</p>', unsafe_allow_html=True)
-                dir_options = ["Overall"] + list(directorates)
-                chart_dir = st.radio("Select group", dir_options, horizontal=True,
-                                     label_visibility="collapsed", key="a5_dir_chart")
-                chart_df = filtered if chart_dir == "Overall" else filtered[filtered["Q1"] == chart_dir]
-                overall_df = None if chart_dir == "Overall" else filtered
-                n_col, _ = st.columns([1, 5])
-                with n_col:
-                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                unsafe_allow_html=True)
-                st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
-                                key=f"a5_bar_{chart_dir}")
-            with a5_table:
-                tdf, styler = build_outcome_table(filtered, "Q1", directorates)
-                outcome_table_cards(n_total, tdf)
-                st.dataframe(styler, use_container_width=True, height=580)
+                st.markdown("---")
 
-        # ── A6: By Q9 Organisational Level ───────────────────
-        with a6:
-            q9_ordered = sorted(q9_levels,
-                                key=lambda x: next(
-                                    (i for i, o in enumerate(Q9_ORDER) if o.lower() == x.lower()),
-                                    len(Q9_ORDER)))
+            # Use whichever directorate was last selected in either ODA tab
+            _b_dir = st.session_state.get('dir_selector_corr',
+                     st.session_state.get('b_dir_selector_lf', directorates[0]))
+            dir_df = filtered[filtered['Q1'] == _b_dir]
+            n_dir  = len(dir_df)
+            selected_dir = _b_dir
 
-            st.markdown("#### Ways of Working — Average Scores by Organisational Level")
-            a6_wow_chart, a6_wow_table = st.tabs(["Bar Chart", "Table"])
-            with a6_wow_chart:
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                    'Select org level</p>', unsafe_allow_html=True)
-                sel_q9_wow = st.radio("Select org level", q9_ordered, horizontal=True,
-                                      label_visibility="collapsed", key="a6_wow_q9")
-                chart_df = filtered[filtered["Q9"] == sel_q9_wow]
-                n_col, _ = st.columns([1, 5])
-                with n_col:
-                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                unsafe_allow_html=True)
-                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="a6_wow_bar")
-            with a6_wow_table:
-                tdf_wow, styler_wow = build_wow_table(filtered, "Q9", q9_levels)
-                wow_table_cards(n_total, tdf_wow)
-                st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                            "**P** = Place average &nbsp;|&nbsp; "
-                            "**Δ** = I − P")
-                st.dataframe(styler_wow, use_container_width=True, height=720)
+        with heatmaps_tab:
+            h1, h2, h3 = st.tabs([
+                "WoW × Outcomes",
+                "WoW × WoW",
+                "Outcomes × Outcomes",
+            ])
 
-            st.markdown("---")
-            st.markdown("#### Employee Experience — Average Scores by Organisational Level")
-            a6_out_chart, a6_out_table = st.tabs(["Bar Chart", "Table"])
-            with a6_out_chart:
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                    'Select org level</p>', unsafe_allow_html=True)
-                sel_q9_out = st.radio("Select org level", q9_ordered, horizontal=True,
-                                      label_visibility="collapsed", key="a6_out_q9")
-                chart_df = filtered[filtered["Q9"] == sel_q9_out]
-                n_col, _ = st.columns([1, 5])
-                with n_col:
-                    st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                unsafe_allow_html=True)
-                st.plotly_chart(make_outcome_bar_chart(chart_df), use_container_width=True, key="a6_out_bar")
-            with a6_out_table:
-                tdf_out, styler_out = build_outcome_table(filtered, "Q9", q9_levels)
-                outcome_table_cards(n_total, tdf_out)
-                st.dataframe(styler_out, use_container_width=True, height=580)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════════
-# SECTION B
-# ═══════════════════════════════════════════════════════════════════════════════════
-with sec_b:
-    if not directorates:
-        st.warning("No directorate data found in this file.")
-        st.stop()
-
-    st.markdown(
-        '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
-        'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
-        unsafe_allow_html=True,
-    )
-    selected_dir = st.radio(
-        "Directorate",
-        directorates,
-        horizontal=True,
-        label_visibility="collapsed",
-        key="dir_selector",
-    )
-
-    dir_df = filtered[filtered["Q1"] == selected_dir]
-    n_dir  = len(dir_df)
-
-    service_areas = get_filter_options(dir_df, "service_area")
-
-    st.caption(f"{n_dir:,} respondents in **{selected_dir}**")
-
-    b_corr_group, b_desc_group = st.tabs(["Correlation Analysis", "Descriptive Analysis"])
-
-    # ── Correlation Analysis group ────────────────────────
-    with b_corr_group:
-        b1, b2, b3 = st.tabs([
-            "B1 · WoW × Outcomes",
-            "B2 · WoW × WoW",
-            "B3 · Outcomes × Outcomes",
-        ])
-
-        # ── B1 ────────────────────────────────────────────────
-        with b1:
-            if n_dir < 3:
-                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-            else:
-                b1_place, b1_ind = st.tabs(["Place (P)", "Individual (I)"])
-                with b1_place:
+            # ── H1: Ways of Working × Outcomes ───────────────────
+            with h1:
+                a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
+                with a1_place:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
+                    st.caption(
+                        "Each cell shows the Spearman correlation (r) between a Place-level Ways of Working "
+                        "theme (rows) and an employee experience outcome (columns). Place themes reflect the "
+                        "shared working environment — norms and behaviours that feel consistent across the team "
+                        "or directorate. Darker blue = stronger positive relationship; darker red = stronger "
+                        "negative. Values above ~0.2 are worth noting; above ~0.4 indicate a meaningful pattern. "
+                        "Read across a row to see which outcomes a given working norm connects to most strongly."
+                    )
                     mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
-                    render_heatmap_cards(n_dir, mat)
-                    render_wow_variance_card(mat)
+                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
-                                    use_container_width=True, key="b1_place")
-                    st.markdown("---")
-                    st.markdown("#### Trend Lines: Ways of Working (Place) vs Employee Experience")
-                    sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_place_out")
-                    out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
-                    render_trend_slope_card(dir_df, WOW_PLACE_COLS, WOW_THEMES, out_col)
-                    st.plotly_chart(make_trend_chart(dir_df, WOW_PLACE_COLS, WOW_THEMES, out_col, sel_out),
-                                    use_container_width=True, key=f"b1_place_trend_{sel_out}")
-                with b1_ind:
+                                    use_container_width=True, key="bh1_place")
+                with a1_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
+                    st.caption(
+                        "Each cell shows the Spearman correlation (r) between an Individual-level Ways of Working "
+                        "theme (rows) and an employee experience outcome (columns). Individual themes reflect how "
+                        "each person personally operates — their own habits and approach, regardless of what the "
+                        "team around them does. Darker blue = stronger positive relationship; darker red = stronger "
+                        "negative. Compare this map with the Place heatmap to see whether environmental or personal "
+                        "behaviours are more strongly linked to each outcome."
+                    )
                     mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
-                    render_heatmap_cards(n_dir, mat)
-                    render_wow_variance_card(mat)
+                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
                     st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
-                                    use_container_width=True, key="b1_ind")
-                    st.markdown("---")
-                    st.markdown("#### Trend Lines: Ways of Working (Individual) vs Employee Experience")
-                    sel_out = st.selectbox("Select outcome", OUTCOME_LABELS, key="b1_ind_out")
-                    out_col = OUTCOME_COLS[OUTCOME_LABELS.index(sel_out)]
-                    render_trend_slope_card(dir_df, WOW_IND_COLS, WOW_THEMES, out_col)
-                    st.plotly_chart(make_trend_chart(dir_df, WOW_IND_COLS, WOW_THEMES, out_col, sel_out),
-                                    use_container_width=True, key=f"b1_ind_trend_{sel_out}")
+                                    use_container_width=True, key="bh1_ind")
 
-        # ── B2 ────────────────────────────────────────────────
-        with b2:
-            if n_dir < 3:
-                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-            else:
-                b2_place, b2_ind = st.tabs(["Place (P)", "Individual (I)"])
-                with b2_place:
+            # ── H2: Ways of Working × Ways of Working ────────────
+            with h2:
+                a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
+                with a2_place:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
+                    st.caption(
+                        "Each cell shows the Spearman correlation between two Place-level Ways of Working themes. "
+                        "Strong positive correlations (dark blue) mean those norms tend to co-exist — groups that "
+                        "display one tend to display the other too. Strong negative correlations (dark red) indicate "
+                        "genuinely opposing orientations. Use this to identify clusters of related working norms "
+                        "and to flag themes that may be measuring the same underlying dimension before regression modelling."
+                    )
                     mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
-                    render_heatmap_cards(n_dir, mat)
+                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                    use_container_width=True, key="b2_place")
-                with b2_ind:
+                                    use_container_width=True, key="bh2_place")
+                with a2_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
+                    st.caption(
+                        "Each cell shows the Spearman correlation between two Individual-level Ways of Working themes. "
+                        "Strong positive correlations mean those personal behaviours tend to appear together in the same "
+                        "people. Use this alongside the Place heatmap to see whether individual habits cluster differently "
+                        "from the team-level norms — a divergence can point to tension between personal style and the "
+                        "shared working environment."
+                    )
                     mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
-                    render_heatmap_cards(n_dir, mat)
+                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
                     st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
-                                    use_container_width=True, key="b2_ind")
+                                    use_container_width=True, key="bh2_ind")
 
-        # ── B3 ────────────────────────────────────────────────
-        with b3:
-            if n_dir < 3:
-                st.warning(f"Too few respondents ({n_dir}) for correlation analysis.")
-            else:
+            # ── H3: Outcomes × Outcomes ───────────────────────────
+            with h3:
                 st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
+                st.caption(
+                    "Each cell shows the Spearman correlation between two employee experience outcomes. "
+                    "Strong positive correlations indicate outcomes that tend to rise and fall together — "
+                    "suggesting they may be capturing the same underlying dimension of experience. "
+                    "Use this to understand how interconnected the outcome measures are before interpreting "
+                    "individual scores in isolation, and to inform how outcomes might be grouped for further analysis."
+                )
                 mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
                 mat.index = mat.columns = OUTCOME_LABELS
                 fill_diagonal_with_nan(mat)
-                render_heatmap_cards(n_dir, mat)
+                render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
                 st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
-                                use_container_width=True, key="b3")
+                                use_container_width=True, key="bh3")
 
     # ── Descriptive Analysis group ────────────────────────
     with b_desc_group:
         b4, b5 = st.tabs([
-            "B4 · Ways of Working",
-            "B5 · Sentiment Outcomes",
+            "B2.1 · Ways of Working",
+            "B2.2 · Sentiment Outcomes",
         ])
 
         # ── B4 ────────────────────────────────────────────────
         with b4:
-            if not service_areas:
-                st.info("No service area breakdown available for this directorate.")
-            else:
-                st.markdown(f"#### Ways of Working — Average Scores by Service Area ({selected_dir})")
-                b4_chart, b4_table = st.tabs(["Bar Chart", "Table"])
-                with b4_chart:
-                    st.markdown(
-                        '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                        'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                        'Select service area</p>', unsafe_allow_html=True)
-                    sa_options = ["Overall"] + list(service_areas)
-                    chart_sa = st.radio("Select service area", sa_options, horizontal=True,
-                                        label_visibility="collapsed", key="b4_sa_chart")
-                    chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
-                    n_col, _ = st.columns([1, 5])
-                    with n_col:
-                        st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                    f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                    unsafe_allow_html=True)
-                    st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
-                with b4_table:
-                    tdf, styler = build_wow_table(dir_df, "service_area", service_areas)
-                    wow_table_cards(n_dir, tdf)
-                    st.markdown("**I** = Individual average &nbsp;|&nbsp; "
-                                "**P** = Place average &nbsp;|&nbsp; "
-                                "**Δ** = I − P")
-                    st.dataframe(styler, use_container_width=True, height=720)
+            st.caption("Average scores for each Way of Working theme, split by Place and Individual, for the selected directorate, service area, and service.")
+            chart_df, dir_df, selected_dir, _b4_overall = svc_selectors("b4", filtered, directorates)
+            _hc_b4 = HEADCOUNT.get(selected_dir) if _b4_overall else None
+            _pct_b4 = f" ({len(chart_df) / _hc_b4:.0%} of headcount)" if _hc_b4 else ""
+            st.markdown("#### Ways of Working — Average Scores by Service Area")
+            st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
-            if not service_areas:
-                st.info("No service area breakdown available for this directorate.")
-            else:
-                st.markdown(f"#### Employee Experience — Average Scores by Service Area ({selected_dir})")
-                b5_chart, b5_table = st.tabs(["Bar Chart", "Table"])
-                with b5_chart:
-                    st.markdown(
-                        '<p style="font-size:13px;font-weight:600;color:#5A7080;'
-                        'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
-                        'Select service area</p>', unsafe_allow_html=True)
-                    sa_options = ["Overall"] + list(service_areas)
-                    chart_sa = st.radio("Select service area", sa_options, horizontal=True,
-                                        label_visibility="collapsed", key="b5_sa_chart")
-                    chart_df = dir_df if chart_sa == "Overall" else dir_df[dir_df["service_area"] == chart_sa]
-                    overall_df = None if chart_sa == "Overall" else dir_df
-                    n_col, _ = st.columns([1, 5])
-                    with n_col:
-                        st.markdown(f'<div class="metric-card"><p class="card-label">Respondents</p>'
-                                    f'<p class="card-value">n = {len(chart_df):,}</p></div>',
-                                    unsafe_allow_html=True)
-                    st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
-                                    key=f"b5_bar_{chart_sa}")
-                with b5_table:
-                    tdf, styler = build_outcome_table(dir_df, "service_area", service_areas)
-                    outcome_table_cards(n_dir, tdf)
-                    st.dataframe(styler, use_container_width=True, height=580)
+            st.caption("Average scores for each employee experience outcome for the selected service area, compared against the directorate-wide average.")
+            chart_df, dir_df, selected_dir, _b5_overall = svc_selectors("b5", filtered, directorates)
+            overall_df = None if _b5_overall else dir_df
+            _hc_b5 = HEADCOUNT.get(selected_dir) if _b5_overall else None
+            _pct_b5 = f" ({len(chart_df) / _hc_b5:.0%} of headcount)" if _hc_b5 else ""
+            st.markdown("#### Employee Experience — Average Scores by Service Area")
+            st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
+                            key="b5_bar")
