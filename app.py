@@ -163,7 +163,7 @@ details[open] [data-testid="stExpander"] summary p {
 
 # ── Constants ─────────────────────────────────────────────────────────────────────
 WOW_THEMES = [
-    "Collective Responsibility", "Individual Accountability",
+    "Sense of Collective Responsibility", "Individual Accountability",
     "Top-down Decision-making", "Autonomy over Decisions",
     "Prioritise People's Well-Being", "Prioritise Results",
     "Challenge Decisions", "Preserve Cohesion",
@@ -171,7 +171,7 @@ WOW_THEMES = [
     "Stick to Current Ways", "Experiment & Innovate",
     "Prioritise Immediate Results", "Consider the Long Term",
     "Proactive Learning", "Reactive Learning",
-    "Target-Driven Interactions", "Relationship-Led Working",
+    "Target-Driven Interactions", "Invest in Relationships",
     "Plan-Based Working", "Agile Working",
     "Recognise Contributions", "Status Awareness",
 ]
@@ -208,7 +208,7 @@ WOW_ALL_LABELS = [f"P · {t}" for t in WOW_THEMES] + [f"I · {t}" for t in WOW_T
 
 # Survey statement text for hover tooltips
 WOW_PLACE_STATEMENTS = {
-    "Collective Responsibility":    "Teamwork comes first here – it's about what we achieve together, not individually.",
+    "Sense of Collective Responsibility":    "Teamwork comes first here – it's about what we achieve together, not individually.",
     "Individual Accountability":    "People are accountable for their own work and credited for their results.",
     "Top-down Decision-making":     "Decisions are mostly made by senior people and passed down.",
     "Autonomy over Decisions":      "People are trusted and encouraged to make decisions at their level.",
@@ -225,7 +225,7 @@ WOW_PLACE_STATEMENTS = {
     "Proactive Learning":           "People are always looking for ways to do things better around here.",
     "Reactive Learning":            "We tend to fix things after they go wrong, not before.",
     "Target-Driven Interactions":   "People mostly talk to each other when there's a specific task to deal with.",
-    "Relationship-Led Working":     "Building good relationships is seen as an important part of the job here.",
+    "Invest in Relationships":     "Building good relationships is seen as an important part of the job here.",
     "Plan-Based Working":           "What we do and when we do it is mostly planned out in advance.",
     "Agile Working":                "The work shapes the day – we change what we do based on what's needed at the time.",
     "Recognise Contributions":      "People get credit for what they actually do and contribute.",
@@ -233,7 +233,7 @@ WOW_PLACE_STATEMENTS = {
 }
 
 WOW_IND_STATEMENTS = {
-    "Collective Responsibility":    "I'm more focused on what we achieve as a team than what I achieve personally.",
+    "Sense of Collective Responsibility":    "I'm more focused on what we achieve as a team than what I achieve personally.",
     "Individual Accountability":    "I like to be responsible for my own work and get on with it independently.",
     "Top-down Decision-making":     "I prefer to know that the right people have approved a decision before moving forward.",
     "Autonomy over Decisions":      "When something needs doing, I'm comfortable making a call and getting on with it.",
@@ -250,7 +250,7 @@ WOW_IND_STATEMENTS = {
     "Proactive Learning":           "I seek out opportunities to learn and improve regularly.",
     "Reactive Learning":            "I mostly learn when something goes wrong and I have to figure it out.",
     "Target-Driven Interactions":   "Most of my conversations with colleagues are about work.",
-    "Relationship-Led Working":     "I like to have close connections with my colleagues.",
+    "Invest in Relationships":     "I like to have close connections with my colleagues.",
     "Plan-Based Working":           "I like to know the plan upfront and work to it.",
     "Agile Working":                "I prefer to keep plans flexible and have my work shape my day.",
     "Recognise Contributions":      "I care more about what someone can contribute than how long they've been here or what their job title is.",
@@ -2136,348 +2136,413 @@ with sec_a:
             ])
 
             with oda_outcomes_tab:
-                st.caption(
-                    "For each employee experience outcome, this analysis: (1) keeps only WoW themes "
-                    "with |r| ≥ the correlation floor — weak predictors are excluded before modelling "
-                    "begins; (2) runs a multiple regression with all remaining themes simultaneously "
-                    "and checks whether the overall model is statistically reliable (Significance F < 0.05); "
-                    "(3) progressively removes the weakest contributors until only those with an independent, "
-                    "meaningful relationship remain. The priority matrix shows the confirmed behavioural "
-                    "drivers across all outcomes at a glance."
-                )
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
-                    'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
-                    unsafe_allow_html=True,
-                )
-                _preview_dir = st.session_state.get("dir_selector_corr", directorates[0])
-                _preview_df  = filtered[filtered["Q1"] == _preview_dir]
-                _preview_hc  = HEADCOUNT.get(_preview_dir)
-                _preview_pct = f" ({len(_preview_df) / _preview_hc:.0%} of headcount)" if _preview_hc else ""
-                st.caption(f"{len(_preview_df):,} respondents in **{_preview_dir}**{_preview_pct}")
-                selected_dir = st.radio(
-                    "Directorate", directorates, horizontal=True,
-                    label_visibility="collapsed", key="dir_selector_corr",
-                )
-                dir_df = filtered[filtered["Q1"] == selected_dir]
-                n_dir  = len(dir_df)
+                b111_tab, b11_main_tab = st.tabs([
+                    "B1.1.1 · Top Drivers by Service Area Summary",
+                    "B1.1 · Analysis",
+                ])
 
-                # ── Service area selector ──────────────────────────────────
-                _b1_svc_groups = get_filter_options(dir_df, "svc_group")
-                st.markdown(
-                    '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
-                    'letter-spacing:0.06em;margin-bottom:4px;margin-top:8px">Select Service Area</p>',
-                    unsafe_allow_html=True,
-                )
-                _b1_prev_sg = st.session_state.get("b1_oda_sg", "Overall service area")
-                _b1_prev_sg_df = dir_df if _b1_prev_sg == "Overall service area" else dir_df[dir_df["svc_group"] == _b1_prev_sg] if _b1_prev_sg in _b1_svc_groups else dir_df
-                _b1_prev_sg_hc = SERVICE_AREA_HEADCOUNT.get(_b1_prev_sg) if _b1_prev_sg != "Overall service area" else HEADCOUNT.get(selected_dir)
-                _b1_prev_sg_pct = f" ({len(_b1_prev_sg_df) / _b1_prev_sg_hc:.0%} of headcount)" if _b1_prev_sg_hc else ""
-                st.caption(f"{len(_b1_prev_sg_df):,} respondents in **{_b1_prev_sg}**{_b1_prev_sg_pct}")
-                sel_b1_sg = st.radio(
-                    "Select service area", ["Overall service area"] + list(_b1_svc_groups),
-                    horizontal=True, label_visibility="collapsed", key="b1_oda_sg"
-                )
-                oda_input_df = dir_df if sel_b1_sg == "Overall service area" else dir_df[dir_df["svc_group"] == sel_b1_sg]
-
-                # ── Controls ──────────────────────────────────────────────
-                oda_c1, oda_c2, oda_c3 = st.columns([3, 2, 2])
-                with oda_c1:
-                    wow_choice_oda = st.radio(
-                        "WoW predictors", ["Place (P)", "Individual (I)"],
-                        horizontal=True, key="b_oda_wow"
-                    )
-                with oda_c2:
-                    r_thresh_oda = st.slider(
-                        "Correlation floor |r| ≥", 0.00, 0.40, 0.20, 0.05, key="b_oda_r"
-                    )
-                    st.markdown(
-                        '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
-                        'Recommended: 0.20</p>',
-                        unsafe_allow_html=True)
-                with oda_c3:
-                    p_thresh_oda = st.slider(
-                        "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="b_oda_p"
-                    )
-                    st.markdown(
-                        '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
-                        'Recommended: 0.05</p>',
-                        unsafe_allow_html=True)
-
-                if "Place" in wow_choice_oda:
-                    oda_pred_cols = tuple(WOW_PLACE_COLS)
-                    oda_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
-                else:
-                    oda_pred_cols = tuple(WOW_IND_COLS)
-                    oda_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
-                oda_pred_labels = tuple(oda_col_to_lbl[c] for c in oda_pred_cols)
-
-                with st.spinner("Running outcome driver analysis…"):
-                    oda_results = run_driver_analysis_batch(
-                        oda_input_df,
-                        tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
-                        oda_pred_cols, oda_pred_labels,
-                        r_thresh_oda, p_thresh_oda,
-                    )
-
-                ok_outcomes = {lbl: res for lbl, res in oda_results.items()
-                               if res["status"] == "ok"}
-
-                _oda_combined = {}
-                for _res in ok_outcomes.values():
-                    for _, _row in _res["coef_df"].iterrows():
-                        _lbl = _row["label"]
-                        _oda_combined[_lbl] = _oda_combined.get(_lbl, 0.0) + _row["β_std"]
-                if _oda_combined:
-                    _oda_sorted = sorted(_oda_combined.items(), key=lambda x: x[1], reverse=True)
-                    _oda_labels = [x[0] for x in _oda_sorted]
-                    _oda_scores = [x[1] for x in _oda_sorted]
-                    st.markdown("#### Top WoW Drivers — Combined Across All Outcomes")
+                with b111_tab:
                     st.caption(
-                        "Each bar shows the sum of standardised β values for that WoW theme across all "
-                        "individual outcome models where it was a confirmed driver, preserving sign. "
-                        "A consistently positive theme scores high; mixed effects partially cancel out. "
-                        "Red = net positive effect; blue = net negative."
+                        "For each service area across all directorates, shows the confirmed WoW drivers "
+                        "with a combined β ≥ 1 (positive) or ≤ -0.25 (negative) across all outcome models. "
+                        "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
                     )
-                    _fig_oda_c = go.Figure(go.Bar(
-                        x=_oda_labels,
-                        y=_oda_scores,
-                        text=[f"{s:+.2f}" for s in _oda_scores],
-                        textposition="outside",
-                        textfont=dict(color="#1A2B3C", size=10),
-                        marker_color=[RED if s >= 0 else PRIMARY for s in _oda_scores],
-                        hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
-                    ))
-                    _fig_oda_c.update_layout(
-                        font=dict(family="Inter", color="#1A2B3C"),
-                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                        margin=dict(l=10, r=10, t=40, b=260),
-                        xaxis=dict(tickangle=-40, tickfont=dict(color="#1A2B3C", size=10)),
-                        yaxis=dict(
-                            title=dict(text="Combined β", font=dict(color="#1A2B3C")),
-                            zeroline=True, zerolinecolor="#D6E0EA",
-                            tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                        ),
-                        height=560,
+                    _b111_svc_map = []
+                    for _dir in directorates:
+                        _dir_df = filtered[filtered["Q1"] == _dir]
+                        for _sg in get_filter_options(_dir_df, "svc_group"):
+                            _b111_svc_map.append((_dir, _sg, _dir_df[_dir_df["svc_group"] == _sg]))
+                    _b111_pred_cols = tuple(WOW_PLACE_COLS)
+                    _b111_pred_labels = tuple(WOW_THEMES)
+                    _b111_pos, _b111_neg = {}, {}
+                    with st.spinner("Computing drivers across all service areas…"):
+                        for _dir, _sg, _sg_df in _b111_svc_map:
+                            if len(_sg_df) < 5:
+                                continue
+                            _sg_res = run_driver_analysis_batch(
+                                _sg_df,
+                                tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                                _b111_pred_cols, _b111_pred_labels,
+                                0.20, 0.05,
+                            )
+                            _sg_comb = {}
+                            for _r in _sg_res.values():
+                                if _r.get("status") == "ok":
+                                    for _, _row in _r["coef_df"].iterrows():
+                                        _lbl = _row["label"]
+                                        _sg_comb[_lbl] = _sg_comb.get(_lbl, 0.0) + _row["β_std"]
+                            _pos = sorted([(l, b) for l, b in _sg_comb.items() if b >= 1],
+                                          key=lambda x: x[1], reverse=True)
+                            _neg = sorted([(l, b) for l, b in _sg_comb.items() if b <= -0.25],
+                                          key=lambda x: x[1])
+                            if _pos:
+                                _b111_pos[_sg] = [f"{l} ({b:+.2f})" for l, b in _pos]
+                            if _neg:
+                                _b111_neg[_sg] = [f"{l} ({b:+.2f})" for l, b in _neg]
+                    if _b111_pos:
+                        st.markdown("#### Top Positive Drivers by Service Area (combined β ≥ 1)")
+                        _mp = max(len(v) for v in _b111_pos.values())
+                        _pos_df = pd.DataFrame(
+                            {k: v + [""] * (_mp - len(v)) for k, v in _b111_pos.items()}
+                        )
+                        _pos_df.index = [f"#{i+1}" for i in range(_mp)]
+                        st.dataframe(_pos_df, use_container_width=True)
+                    else:
+                        st.info("No positive drivers with combined β ≥ 1 found.")
+                    if _b111_neg:
+                        st.markdown("#### Top Negative Drivers by Service Area (combined β ≤ -0.25)")
+                        _mn = max(len(v) for v in _b111_neg.values())
+                        _neg_df = pd.DataFrame(
+                            {k: v + [""] * (_mn - len(v)) for k, v in _b111_neg.items()}
+                        )
+                        _neg_df.index = [f"#{i+1}" for i in range(_mn)]
+                        st.dataframe(_neg_df, use_container_width=True)
+                    else:
+                        st.info("No negative drivers with combined β ≤ -0.25 found.")
+
+                with b11_main_tab:
+                    st.caption(
+                        "For each employee experience outcome, this analysis: (1) keeps only WoW themes "
+                        "with |r| ≥ the correlation floor — weak predictors are excluded before modelling "
+                        "begins; (2) runs a multiple regression with all remaining themes simultaneously "
+                        "and checks whether the overall model is statistically reliable (Significance F < 0.05); "
+                        "(3) progressively removes the weakest contributors until only those with an independent, "
+                        "meaningful relationship remain. The priority matrix shows the confirmed behavioural "
+                        "drivers across all outcomes at a glance."
                     )
-                    st.plotly_chart(_fig_oda_c, use_container_width=True, key="b_oda_combined_bar")
-
-                # ── Priority matrix ────────────────────────────────────────
-                st.markdown("---")
-                st.markdown("#### Top Ways of Working Drivers — Per Outcome")
-                st.caption(
-                    "Each cell shows the standardised β for a WoW theme that survived backward "
-                    "elimination for that outcome's model. Blank = not a confirmed driver (below "
-                    "the correlation floor or eliminated). Blue = positive effect (more of this "
-                    "behaviour → better outcome score); red = negative effect."
-                )
-
-                if not ok_outcomes:
-                    st.warning(
-                        "No outcomes produced a statistically reliable model with the current settings. "
-                        "Try lowering the correlation floor or raising the p-value threshold."
+                    st.markdown(
+                        '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+                        'letter-spacing:0.06em;margin-bottom:4px">Select Directorate</p>',
+                        unsafe_allow_html=True,
                     )
-                else:
-                    all_retained_labels = sorted(set(
-                        oda_col_to_lbl[c]
-                        for res in ok_outcomes.values()
-                        for c in res["retained"]
-                    ))
-                    matrix_rows = {}
-                    for out_lbl, res in ok_outcomes.items():
-                        lbl_to_beta = {
-                            row["label"]: row["β_std"]
-                            for _, row in res["coef_df"].iterrows()
-                        }
-                        matrix_rows[out_lbl] = {
-                            theme: lbl_to_beta.get(theme, np.nan)
-                            for theme in all_retained_labels
-                        }
-                    priority_df = pd.DataFrame(matrix_rows, index=all_retained_labels)
-                    _ordered_outcomes = [lbl for lbl in OUTCOME_LABELS if lbl in priority_df.columns]
-                    priority_df = priority_df[_ordered_outcomes]
-
-                    beta_abs_max = priority_df.abs().max().max()
-                    beta_abs_max = max(beta_abs_max, 0.01)
-
-                    priority_df_T = priority_df.T  # outcomes as rows, WoW as columns
-                    fig_matrix = go.Figure(go.Heatmap(
-                        z=priority_df_T.values.tolist(),
-                        x=list(priority_df_T.columns),
-                        y=list(priority_df_T.index),
-                        colorscale=[
-                            [0.0,  "#0F4C6B"],
-                            [0.5,  "#F7F9FC"],
-                            [1.0,  "#C0392B"],
-                        ],
-                        zmid=0,
-                        zmin=-beta_abs_max,
-                        zmax=beta_abs_max,
-                        text=[[
-                            f"{v:.2f}" if not np.isnan(v) else ""
-                            for v in row
-                        ] for row in priority_df_T.values.tolist()],
-                        texttemplate="%{text}",
-                        textfont=dict(size=11, color="#1A2B3C"),
-                        hoverongaps=False,
-                        hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
-                        colorbar=dict(title="β", len=0.7),
-                    ))
-                    fig_matrix.update_layout(
-                        font=dict(family="Inter", color="#1A2B3C"),
-                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                        margin=dict(l=10, r=10, t=10, b=160),
-                        xaxis=dict(
-                            tickfont=dict(color="#1A2B3C", size=11),
-                            tickangle=-40,
-                            side="bottom",
-                        ),
-                        yaxis=dict(tickfont=dict(color="#1A2B3C", size=11), autorange="reversed"),
-                        height=max(350, 36 * len(ok_outcomes)),
+                    _preview_dir = st.session_state.get("dir_selector_corr", directorates[0])
+                    _preview_df  = filtered[filtered["Q1"] == _preview_dir]
+                    _preview_hc  = HEADCOUNT.get(_preview_dir)
+                    _preview_pct = f" ({len(_preview_df) / _preview_hc:.0%} of headcount)" if _preview_hc else ""
+                    st.caption(f"{len(_preview_df):,} respondents in **{_preview_dir}**{_preview_pct}")
+                    selected_dir = st.radio(
+                        "Directorate", directorates, horizontal=True,
+                        label_visibility="collapsed", key="dir_selector_corr",
                     )
-                    st.plotly_chart(fig_matrix, use_container_width=True, key="b_oda_matrix")
+                    dir_df = filtered[filtered["Q1"] == selected_dir]
+                    n_dir  = len(dir_df)
 
-                # ── Per-outcome detail ─────────────────────────────────────
-                st.markdown("---")
-                st.markdown('<p style="font-size:14px;font-weight:600;color:#5A7080;margin-top:8px;margin-bottom:4px">Breakdown per Outcome</p>', unsafe_allow_html=True)
+                    # ── Service area selector ──────────────────────────────────
+                    _b1_svc_groups = get_filter_options(dir_df, "svc_group")
+                    st.markdown(
+                        '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+                        'letter-spacing:0.06em;margin-bottom:4px;margin-top:8px">Select Service Area</p>',
+                        unsafe_allow_html=True,
+                    )
+                    _b1_prev_sg = st.session_state.get("b1_oda_sg", "Overall service area")
+                    _b1_prev_sg_df = dir_df if _b1_prev_sg == "Overall service area" else dir_df[dir_df["svc_group"] == _b1_prev_sg] if _b1_prev_sg in _b1_svc_groups else dir_df
+                    _b1_prev_sg_hc = SERVICE_AREA_HEADCOUNT.get(_b1_prev_sg) if _b1_prev_sg != "Overall service area" else HEADCOUNT.get(selected_dir)
+                    _b1_prev_sg_pct = f" ({len(_b1_prev_sg_df) / _b1_prev_sg_hc:.0%} of headcount)" if _b1_prev_sg_hc else ""
+                    st.caption(f"{len(_b1_prev_sg_df):,} respondents in **{_b1_prev_sg}**{_b1_prev_sg_pct}")
+                    sel_b1_sg = st.radio(
+                        "Select service area", ["Overall service area"] + list(_b1_svc_groups),
+                        horizontal=True, label_visibility="collapsed", key="b1_oda_sg"
+                    )
+                    oda_input_df = dir_df if sel_b1_sg == "Overall service area" else dir_df[dir_df["svc_group"] == sel_b1_sg]
 
-                for out_lbl in OUTCOME_LABELS:
-                    res = oda_results.get(out_lbl, {"status": "no_predictors"})
-                    status = res["status"]
-                    icon = "✓" if status == "ok" else "✗"
-                    with st.expander(f"{icon}  {out_lbl}"):
-                        if status == "no_predictors":
-                            st.info(
-                                f"No WoW themes reached |r| ≥ {r_thresh_oda:.2f} for this outcome. "
-                                "No regression was run."
-                            )
-                        elif status == "fail_sig_f":
-                            st.error(
-                                f"**Model not statistically reliable** — Significance F = {res['sig_f']:.4f} "
-                                f"(> 0.05). The {res['n_eligible']} predictors that cleared the correlation "
-                                f"floor did not collectively explain this outcome reliably. "
-                                "Do not read into the individual coefficients."
-                            )
-                            mc1, mc2, mc3 = st.columns(3)
-                            for col_ui, label, value in [
-                                (mc1, "Respondents", f"n = {res['n']:,}"),
-                                (mc2, "Significance F", f"{res['sig_f']:.4f}"),
-                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
-                            ]:
-                                with col_ui:
-                                    st.markdown(
-                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
-                                        f'<p class="card-value">{value}</p></div>',
-                                        unsafe_allow_html=True)
-                        elif status == "all_eliminated":
-                            st.warning(
-                                "All predictors were eliminated during backward stepwise. "
-                                "Try raising the p-value threshold."
-                            )
-                            mc1, mc2, mc3 = st.columns(3)
-                            for col_ui, label, value in [
-                                (mc1, "Respondents", f"n = {res['n']:,}"),
-                                (mc2, "Significance F", f"{res['sig_f']:.4f}"),
-                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
-                            ]:
-                                with col_ui:
-                                    st.markdown(
-                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
-                                        f'<p class="card-value">{value}</p></div>',
-                                        unsafe_allow_html=True)
-                        else:
-                            coef_df = res["coef_df"]
-                            # Summary cards
-                            mc1, mc2, mc3, mc4, mc5 = st.columns(5)
-                            for col_ui, label, value in [
-                                (mc1, "Respondents",         f"n = {res['n']:,}"),
-                                (mc2, "Significance F",      f"{res['sig_f']:.4f}"),
-                                (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
-                                (mc4, "Adj R² (final model)",f"{res['adj_r2_final']:.3f}"),
-                                (mc5, "Confirmed drivers",   str(len(res["retained"]))),
-                            ]:
-                                with col_ui:
-                                    st.markdown(
-                                        f'<div class="metric-card"><p class="card-label">{label}</p>'
-                                        f'<p class="card-value">{value}</p></div>',
-                                        unsafe_allow_html=True)
+                    # ── Controls ──────────────────────────────────────────────
+                    oda_c1, oda_c2, oda_c3 = st.columns([3, 2, 2])
+                    with oda_c1:
+                        wow_choice_oda = st.radio(
+                            "WoW predictors", ["Place (P)", "Individual (I)"],
+                            horizontal=True, key="b_oda_wow"
+                        )
+                    with oda_c2:
+                        r_thresh_oda = st.slider(
+                            "Correlation floor |r| ≥", 0.00, 0.40, 0.20, 0.05, key="b_oda_r"
+                        )
+                        st.markdown(
+                            '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                            'Recommended: 0.20</p>',
+                            unsafe_allow_html=True)
+                    with oda_c3:
+                        p_thresh_oda = st.slider(
+                            "P-value threshold", 0.00, 0.10, 0.05, 0.01, key="b_oda_p"
+                        )
+                        st.markdown(
+                            '<p style="font-size:11px;color:#8FA3B1;margin-top:-10px">'
+                            'Recommended: 0.05</p>',
+                            unsafe_allow_html=True)
 
-                            # β coefficient chart
-                            st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
-                            st.caption(
-                                "Each bar shows a retained WoW theme's standardised β and the equivalent "
-                                "point change on the 1–5 outcome scale (Δ pts). β reflects the independent "
-                                "contribution of that theme after controlling for all others — a 1 SD shift "
-                                "in the WoW theme produces the shown point change in the outcome. "
-                                "* p<0.05  ** p<0.01  *** p<0.001"
-                            )
-                            coef_sorted = coef_df.reindex(
-                                coef_df["β_std"].abs().sort_values(ascending=False).index
-                            )
-                            fig_coef = go.Figure(go.Bar(
-                                x=coef_sorted["label"],
-                                y=coef_sorted["β_std"],
-                                text=coef_sorted["text"],
-                                textposition="outside",
-                                textfont=dict(color="#1A2B3C", size=10),
-                                marker_color=[
-                                    RED if v >= 0 else PRIMARY
-                                    for v in coef_sorted["β_std"]
-                                ],
-                                hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
-                            ))
-                            fig_coef.update_layout(
-                                font=dict(family="Inter", color="#1A2B3C"),
-                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                                margin=dict(l=10, r=10, t=40, b=160),
-                                xaxis=dict(
-                                    tickangle=-40,
-                                    tickfont=dict(color="#1A2B3C", size=10),
-                                ),
-                                yaxis=dict(
-                                    title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
-                                    zeroline=True, zerolinecolor="#D6E0EA",
-                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                                ),
-                                height=420,
-                            )
-                            st.plotly_chart(fig_coef, use_container_width=True,
-                                            key=f"b_oda_coef_{out_lbl}")
+                    if "Place" in wow_choice_oda:
+                        oda_pred_cols = tuple(WOW_PLACE_COLS)
+                        oda_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
+                    else:
+                        oda_pred_cols = tuple(WOW_IND_COLS)
+                        oda_col_to_lbl = dict(zip(WOW_IND_COLS, WOW_THEMES))
+                    oda_pred_labels = tuple(oda_col_to_lbl[c] for c in oda_pred_cols)
 
-                            # Elimination path
-                            st.markdown("##### Elimination Path — Adj R² at each step")
-                            st.caption(
-                                "Each point shows the model's Adjusted R² after removing the least "
-                                "significant predictor at that step. A flat or rising line means those "
-                                "predictors weren't earning their place. A drop signals the core has "
-                                "been reached."
-                            )
-                            log_df = pd.DataFrame(res["elim_log"])
-                            fig_elim = go.Figure(go.Scatter(
-                                x=log_df["Predictors in model"],
-                                y=log_df["Adj. R²"],
-                                mode="lines+markers",
-                                line=dict(color=PRIMARY, width=2),
-                                marker=dict(color=PRIMARY, size=8),
-                                hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
-                            ))
-                            fig_elim.update_layout(
-                                font=dict(family="Inter", color="#1A2B3C"),
-                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                                margin=dict(l=10, r=10, t=10, b=10),
-                                xaxis=dict(
-                                    title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
-                                    autorange="reversed",
-                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                                ),
-                                yaxis=dict(
-                                    title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
-                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                                ),
-                                height=300,
-                            )
-                            st.plotly_chart(fig_elim, use_container_width=True,
-                                            key=f"b_oda_elim_{out_lbl}")
+                    with st.spinner("Running outcome driver analysis…"):
+                        oda_results = run_driver_analysis_batch(
+                            oda_input_df,
+                            tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                            oda_pred_cols, oda_pred_labels,
+                            r_thresh_oda, p_thresh_oda,
+                        )
+
+                    ok_outcomes = {lbl: res for lbl, res in oda_results.items()
+                                   if res["status"] == "ok"}
+
+                    _oda_combined = {}
+                    for _res in ok_outcomes.values():
+                        for _, _row in _res["coef_df"].iterrows():
+                            _lbl = _row["label"]
+                            _oda_combined[_lbl] = _oda_combined.get(_lbl, 0.0) + _row["β_std"]
+                    if _oda_combined:
+                        _oda_sorted = sorted(_oda_combined.items(), key=lambda x: x[1], reverse=True)
+                        _oda_labels = [x[0] for x in _oda_sorted]
+                        _oda_scores = [x[1] for x in _oda_sorted]
+                        st.markdown("#### Top WoW Drivers — Combined Across All Outcomes")
+                        st.caption(
+                            "Each bar shows the sum of standardised β values for that WoW theme across all "
+                            "individual outcome models where it was a confirmed driver, preserving sign. "
+                            "A consistently positive theme scores high; mixed effects partially cancel out. "
+                            "Red = net positive effect; blue = net negative."
+                        )
+                        _fig_oda_c = go.Figure(go.Bar(
+                            x=_oda_labels,
+                            y=_oda_scores,
+                            text=[f"{s:+.2f}" for s in _oda_scores],
+                            textposition="outside",
+                            textfont=dict(color="#1A2B3C", size=10),
+                            marker_color=[RED if s >= 0 else PRIMARY for s in _oda_scores],
+                            hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                        ))
+                        _fig_oda_c.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=40, b=260),
+                            xaxis=dict(tickangle=-40, tickfont=dict(color="#1A2B3C", size=10)),
+                            yaxis=dict(
+                                title=dict(text="Combined β", font=dict(color="#1A2B3C")),
+                                zeroline=True, zerolinecolor="#D6E0EA",
+                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                            ),
+                            height=560,
+                        )
+                        st.plotly_chart(_fig_oda_c, use_container_width=True, key="b_oda_combined_bar")
+
+                    # ── Priority matrix ────────────────────────────────────────
+                    st.markdown("---")
+                    st.markdown("#### Top Ways of Working Drivers — Per Outcome")
+                    st.caption(
+                        "Each cell shows the standardised β for a WoW theme that survived backward "
+                        "elimination for that outcome's model. Blank = not a confirmed driver (below "
+                        "the correlation floor or eliminated). Blue = positive effect (more of this "
+                        "behaviour → better outcome score); red = negative effect."
+                    )
+
+                    if not ok_outcomes:
+                        st.warning(
+                            "No outcomes produced a statistically reliable model with the current settings. "
+                            "Try lowering the correlation floor or raising the p-value threshold."
+                        )
+                    else:
+                        all_retained_labels = sorted(set(
+                            oda_col_to_lbl[c]
+                            for res in ok_outcomes.values()
+                            for c in res["retained"]
+                        ))
+                        matrix_rows = {}
+                        for out_lbl, res in ok_outcomes.items():
+                            lbl_to_beta = {
+                                row["label"]: row["β_std"]
+                                for _, row in res["coef_df"].iterrows()
+                            }
+                            matrix_rows[out_lbl] = {
+                                theme: lbl_to_beta.get(theme, np.nan)
+                                for theme in all_retained_labels
+                            }
+                        priority_df = pd.DataFrame(matrix_rows, index=all_retained_labels)
+                        _ordered_outcomes = [lbl for lbl in OUTCOME_LABELS if lbl in priority_df.columns]
+                        priority_df = priority_df[_ordered_outcomes]
+
+                        beta_abs_max = priority_df.abs().max().max()
+                        beta_abs_max = max(beta_abs_max, 0.01)
+
+                        priority_df_T = priority_df.T  # outcomes as rows, WoW as columns
+                        fig_matrix = go.Figure(go.Heatmap(
+                            z=priority_df_T.values.tolist(),
+                            x=list(priority_df_T.columns),
+                            y=list(priority_df_T.index),
+                            colorscale=[
+                                [0.0,  "#0F4C6B"],
+                                [0.5,  "#F7F9FC"],
+                                [1.0,  "#C0392B"],
+                            ],
+                            zmid=0,
+                            zmin=-beta_abs_max,
+                            zmax=beta_abs_max,
+                            text=[[
+                                f"{v:.2f}" if not np.isnan(v) else ""
+                                for v in row
+                            ] for row in priority_df_T.values.tolist()],
+                            texttemplate="%{text}",
+                            textfont=dict(size=11, color="#1A2B3C"),
+                            hoverongaps=False,
+                            hovertemplate="<b>%{x}</b><br>%{y}<br>β = %{z:.3f}<extra></extra>",
+                            colorbar=dict(title="β", len=0.7),
+                        ))
+                        fig_matrix.update_layout(
+                            font=dict(family="Inter", color="#1A2B3C"),
+                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                            margin=dict(l=10, r=10, t=10, b=160),
+                            xaxis=dict(
+                                tickfont=dict(color="#1A2B3C", size=11),
+                                tickangle=-40,
+                                side="bottom",
+                            ),
+                            yaxis=dict(tickfont=dict(color="#1A2B3C", size=11), autorange="reversed"),
+                            height=max(350, 36 * len(ok_outcomes)),
+                        )
+                        st.plotly_chart(fig_matrix, use_container_width=True, key="b_oda_matrix")
+
+                    # ── Per-outcome detail ─────────────────────────────────────
+                    st.markdown("---")
+                    st.markdown('<p style="font-size:14px;font-weight:600;color:#5A7080;margin-top:8px;margin-bottom:4px">Breakdown per Outcome</p>', unsafe_allow_html=True)
+
+                    for out_lbl in OUTCOME_LABELS:
+                        res = oda_results.get(out_lbl, {"status": "no_predictors"})
+                        status = res["status"]
+                        icon = "✓" if status == "ok" else "✗"
+                        with st.expander(f"{icon}  {out_lbl}"):
+                            if status == "no_predictors":
+                                st.info(
+                                    f"No WoW themes reached |r| ≥ {r_thresh_oda:.2f} for this outcome. "
+                                    "No regression was run."
+                                )
+                            elif status == "fail_sig_f":
+                                st.error(
+                                    f"**Model not statistically reliable** — Significance F = {res['sig_f']:.4f} "
+                                    f"(> 0.05). The {res['n_eligible']} predictors that cleared the correlation "
+                                    f"floor did not collectively explain this outcome reliably. "
+                                    "Do not read into the individual coefficients."
+                                )
+                                mc1, mc2, mc3 = st.columns(3)
+                                for col_ui, label, value in [
+                                    (mc1, "Respondents", f"n = {res['n']:,}"),
+                                    (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                    (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                                ]:
+                                    with col_ui:
+                                        st.markdown(
+                                            f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                            f'<p class="card-value">{value}</p></div>',
+                                            unsafe_allow_html=True)
+                            elif status == "all_eliminated":
+                                st.warning(
+                                    "All predictors were eliminated during backward stepwise. "
+                                    "Try raising the p-value threshold."
+                                )
+                                mc1, mc2, mc3 = st.columns(3)
+                                for col_ui, label, value in [
+                                    (mc1, "Respondents", f"n = {res['n']:,}"),
+                                    (mc2, "Significance F", f"{res['sig_f']:.4f}"),
+                                    (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                                ]:
+                                    with col_ui:
+                                        st.markdown(
+                                            f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                            f'<p class="card-value">{value}</p></div>',
+                                            unsafe_allow_html=True)
+                            else:
+                                coef_df = res["coef_df"]
+                                # Summary cards
+                                mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+                                for col_ui, label, value in [
+                                    (mc1, "Respondents",         f"n = {res['n']:,}"),
+                                    (mc2, "Significance F",      f"{res['sig_f']:.4f}"),
+                                    (mc3, "Adj R² (full model)", f"{res['adj_r2_full']:.3f}"),
+                                    (mc4, "Adj R² (final model)",f"{res['adj_r2_final']:.3f}"),
+                                    (mc5, "Confirmed drivers",   str(len(res["retained"]))),
+                                ]:
+                                    with col_ui:
+                                        st.markdown(
+                                            f'<div class="metric-card"><p class="card-label">{label}</p>'
+                                            f'<p class="card-value">{value}</p></div>',
+                                            unsafe_allow_html=True)
+
+                                # β coefficient chart
+                                st.markdown("##### Confirmed Drivers — Standardised β Coefficients")
+                                st.caption(
+                                    "Each bar shows a retained WoW theme's standardised β and the equivalent "
+                                    "point change on the 1–5 outcome scale (Δ pts). β reflects the independent "
+                                    "contribution of that theme after controlling for all others — a 1 SD shift "
+                                    "in the WoW theme produces the shown point change in the outcome. "
+                                    "* p<0.05  ** p<0.01  *** p<0.001"
+                                )
+                                coef_sorted = coef_df.reindex(
+                                    coef_df["β_std"].abs().sort_values(ascending=False).index
+                                )
+                                fig_coef = go.Figure(go.Bar(
+                                    x=coef_sorted["label"],
+                                    y=coef_sorted["β_std"],
+                                    text=coef_sorted["text"],
+                                    textposition="outside",
+                                    textfont=dict(color="#1A2B3C", size=10),
+                                    marker_color=[
+                                        RED if v >= 0 else PRIMARY
+                                        for v in coef_sorted["β_std"]
+                                    ],
+                                    hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                                ))
+                                fig_coef.update_layout(
+                                    font=dict(family="Inter", color="#1A2B3C"),
+                                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                    margin=dict(l=10, r=10, t=40, b=160),
+                                    xaxis=dict(
+                                        tickangle=-40,
+                                        tickfont=dict(color="#1A2B3C", size=10),
+                                    ),
+                                    yaxis=dict(
+                                        title=dict(text="Standardised β", font=dict(color="#1A2B3C")),
+                                        zeroline=True, zerolinecolor="#D6E0EA",
+                                        tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                    ),
+                                    height=420,
+                                )
+                                st.plotly_chart(fig_coef, use_container_width=True,
+                                                key=f"b_oda_coef_{out_lbl}")
+
+                                # Elimination path
+                                st.markdown("##### Elimination Path — Adj R² at each step")
+                                st.caption(
+                                    "Each point shows the model's Adjusted R² after removing the least "
+                                    "significant predictor at that step. A flat or rising line means those "
+                                    "predictors weren't earning their place. A drop signals the core has "
+                                    "been reached."
+                                )
+                                log_df = pd.DataFrame(res["elim_log"])
+                                fig_elim = go.Figure(go.Scatter(
+                                    x=log_df["Predictors in model"],
+                                    y=log_df["Adj. R²"],
+                                    mode="lines+markers",
+                                    line=dict(color=PRIMARY, width=2),
+                                    marker=dict(color=PRIMARY, size=8),
+                                    hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
+                                ))
+                                fig_elim.update_layout(
+                                    font=dict(family="Inter", color="#1A2B3C"),
+                                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                    margin=dict(l=10, r=10, t=10, b=10),
+                                    xaxis=dict(
+                                        title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
+                                        autorange="reversed",
+                                        tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                    ),
+                                    yaxis=dict(
+                                        title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
+                                        tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                    ),
+                                    height=300,
+                                )
+                                st.plotly_chart(fig_elim, use_container_width=True,
+                                                key=f"b_oda_elim_{out_lbl}")
 
             with oda_lf_tab:
                 st.caption(
@@ -3104,19 +3169,26 @@ with sec_c:
         _c1_rows = [(lbl, sub) for lbl, sub in _c1_rows if len(sub) > 0]
         _c1_labels = [r[0] for r in _c1_rows]
         _c1_training = [C1_TRAINING.get(lbl) for lbl in _c1_labels]
+        _c1_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c1_rows]
+        _c1_sort = sorted(range(len(_c1_labels)), key=lambda i: _c1_ee_pre[i])
+        _c1_rows = [_c1_rows[i] for i in _c1_sort]
+        _c1_labels = [_c1_labels[i] for i in _c1_sort]
+        _c1_training = [_c1_training[i] for i in _c1_sort]
 
-        def _c1_dual_chart(y_vals, y_title, chart_key, caption_text):
+        def _c1_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+            _x = x_labels if x_labels is not None else _c1_labels
+            _comp = comp_override if comp_override is not None else _c1_training
             fig = go.Figure()
             fig.add_trace(go.Bar(
-                name=y_title, x=_c1_labels, y=y_vals,
+                name=y_title, x=_x, y=y_vals,
                 text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
                 hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
             ))
             fig.add_trace(go.Bar(
-                name="Training Completion %", x=_c1_labels, y=_c1_training,
-                text=[f"{t}%" if t is not None else "" for t in _c1_training],
+                name="Training Completion %", x=_x, y=_comp,
+                text=[f"{t}%" if t is not None else "" for t in _comp],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color="#E07070", yaxis="y2", offsetgroup=1,
                 hovertemplate="<b>%{x}</b><br>Training completion: %{y}%<extra></extra>",
@@ -3161,11 +3233,15 @@ with sec_c:
                 st.markdown(f"##### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
+                _wv = [sub[_wc].mean() for _, sub in _c1_rows]
+                _wsort = sorted(range(len(_c1_labels)), key=lambda i: _wv[i])
                 _c1_dual_chart(
-                    [sub[_wc].mean() for _, sub in _c1_rows],
+                    [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
                     f"c1_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = mandatory training completion rate.",
+                    x_labels=[_c1_labels[i] for i in _wsort],
+                    comp_override=[_c1_training[i] for i in _wsort],
                 )
     with c2:
         c2_1, c2_2 = st.tabs(["C2.1 · Employee Experience", "C2.2 · Ways of Working"])
@@ -3212,18 +3288,24 @@ with sec_c:
         _c23_rows = [(lbl, sub) for lbl, sub in _c23_rows if len(sub) > 0]
         _c23_labels = [r[0] for r in _c23_rows]
         _c2_comp = [C2_SICKNESS.get(lbl) for lbl in _c23_labels]
+        _c23_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
+        _c23_sort = sorted(range(len(_c23_labels)), key=lambda i: _c23_ee_pre[i])
+        _c23_rows = [_c23_rows[i] for i in _c23_sort]
+        _c23_labels = [_c23_labels[i] for i in _c23_sort]
+        _c2_comp = [_c2_comp[i] for i in _c23_sort]
 
-        def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text):
+        def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text, x_labels=None):
+            _x = x_labels if x_labels is not None else _c23_labels
             fig = go.Figure()
             fig.add_trace(go.Bar(
-                name=y_title, x=_c23_labels, y=y_vals,
+                name=y_title, x=_x, y=y_vals,
                 text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
                 hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
             ))
             fig.add_trace(go.Bar(
-                name=comp_title, x=_c23_labels, y=comp_vals,
+                name=comp_title, x=_x, y=comp_vals,
                 text=[f"{v}{comp_suffix}" if v is not None else "" for v in comp_vals],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color=comp_color, yaxis="y2", offsetgroup=1,
@@ -3271,13 +3353,16 @@ with sec_c:
                 st.markdown(f"##### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
+                _wv = [sub[_wc].mean() for _, sub in _c23_rows]
+                _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
                 _c23_dual_chart(
-                    [sub[_wc].mean() for _, sub in _c23_rows],
+                    [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
-                    _c2_comp, "Avg Sickness Days", " days", "#E07070",
+                    [_c2_comp[i] for i in _wsort], "Avg Sickness Days", " days", "#E07070",
                     [0, 6.5], [0, 10],
                     f"c2_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
+                    x_labels=[_c23_labels[i] for i in _wsort],
                 )
     with c3:
         c3_1, c3_2 = st.tabs(["C3.1 · Employee Experience", "C3.2 · Ways of Working"])
@@ -3296,6 +3381,7 @@ with sec_c:
         }
 
         _c3_comp = [C3_TURNOVER.get(lbl) for lbl in _c23_labels]
+        _c3_comp = [_c3_comp[i] for i in _c23_sort]
 
         with c3_1:
             st.markdown("#### Employee Experience vs Turnover — by Service")
@@ -3316,13 +3402,16 @@ with sec_c:
                 st.markdown(f"##### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
+                _wv = [sub[_wc].mean() for _, sub in _c23_rows]
+                _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
                 _c23_dual_chart(
-                    [sub[_wc].mean() for _, sub in _c23_rows],
+                    [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
-                    _c3_comp, "Turnover (%)", "%", "#E07070",
+                    [_c3_comp[i] for i in _wsort], "Turnover (%)", "%", "#E07070",
                     [0, 6.5], [0, 3],
                     f"c3_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
+                    x_labels=[_c23_labels[i] for i in _wsort],
                 )
     with c4:
         c4_1, c4_2 = st.tabs(["C4.1 · Employee Experience", "C4.2 · Ways of Working"])
@@ -3360,19 +3449,26 @@ with sec_c:
         _c4_rows = [(lbl, sub) for lbl, sub in _c4_rows if len(sub) > 0]
         _c4_labels = [r[0] for r in _c4_rows]
         _c4_comp = [C4_PROCUREMENT.get(lbl) for lbl in _c4_labels]
+        _c4_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c4_rows]
+        _c4_sort = sorted(range(len(_c4_labels)), key=lambda i: _c4_ee_pre[i])
+        _c4_rows = [_c4_rows[i] for i in _c4_sort]
+        _c4_labels = [_c4_labels[i] for i in _c4_sort]
+        _c4_comp = [_c4_comp[i] for i in _c4_sort]
 
-        def _c4_dual_chart(y_vals, y_title, chart_key, caption_text):
+        def _c4_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+            _x = x_labels if x_labels is not None else _c4_labels
+            _comp = comp_override if comp_override is not None else _c4_comp
             fig = go.Figure()
             fig.add_trace(go.Bar(
-                name=y_title, x=_c4_labels, y=y_vals,
+                name=y_title, x=_x, y=y_vals,
                 text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
                 hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
             ))
             fig.add_trace(go.Bar(
-                name="No. of Procurement Breaches", x=_c4_labels, y=_c4_comp,
-                text=[str(v) if v is not None else "" for v in _c4_comp],
+                name="No. of Procurement Breaches", x=_x, y=_comp,
+                text=[str(v) if v is not None else "" for v in _comp],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color="#E07070", yaxis="y2", offsetgroup=1,
                 hovertemplate="<b>%{x}</b><br>Procurement breaches: %{y}<extra></extra>",
@@ -3417,11 +3513,15 @@ with sec_c:
                 st.markdown(f"##### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
+                _wv = [sub[_wc].mean() for _, sub in _c4_rows]
+                _wsort = sorted(range(len(_c4_labels)), key=lambda i: _wv[i])
                 _c4_dual_chart(
-                    [sub[_wc].mean() for _, sub in _c4_rows],
+                    [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
                     f"c4_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = procurement breaches.",
+                    x_labels=[_c4_labels[i] for i in _wsort],
+                    comp_override=[_c4_comp[i] for i in _wsort],
                 )
     with c5:
         c5_1, c5_2 = st.tabs(["C5.1 · Employee Experience", "C5.2 · Ways of Working"])
@@ -3466,19 +3566,26 @@ with sec_c:
         _c5_rows = [(lbl, sub) for lbl, sub in _c5_rows if len(sub) > 0]
         _c5_labels = [r[0] for r in _c5_rows]
         _c5_comp = [C5_COMPLETION.get(lbl) for lbl in _c5_labels]
+        _c5_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c5_rows]
+        _c5_sort = sorted(range(len(_c5_labels)), key=lambda i: _c5_ee_pre[i])
+        _c5_rows = [_c5_rows[i] for i in _c5_sort]
+        _c5_labels = [_c5_labels[i] for i in _c5_sort]
+        _c5_comp = [_c5_comp[i] for i in _c5_sort]
 
-        def _c5_dual_chart(y_vals, y_title, chart_key, caption_text):
+        def _c5_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+            _x = x_labels if x_labels is not None else _c5_labels
+            _comp = comp_override if comp_override is not None else _c5_comp
             fig = go.Figure()
             fig.add_trace(go.Bar(
-                name=y_title, x=_c5_labels, y=y_vals,
+                name=y_title, x=_x, y=y_vals,
                 text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
                 hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
             ))
             fig.add_trace(go.Bar(
-                name="Survey Completion %", x=_c5_labels, y=_c5_comp,
-                text=[f"{v:.1f}%" if v is not None else "" for v in _c5_comp],
+                name="Survey Completion %", x=_x, y=_comp,
+                text=[f"{v:.1f}%" if v is not None else "" for v in _comp],
                 textposition="outside", textfont=dict(color="#1A2B3C", size=8),
                 marker_color="#E07070", yaxis="y2", offsetgroup=1,
                 hovertemplate="<b>%{x}</b><br>Survey completion: %{y:.1f}%<extra></extra>",
@@ -3523,9 +3630,13 @@ with sec_c:
                 st.markdown(f"##### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
+                _wv = [sub[_wc].mean() for _, sub in _c5_rows]
+                _wsort = sorted(range(len(_c5_labels)), key=lambda i: _wv[i])
                 _c5_dual_chart(
-                    [sub[_wc].mean() for _, sub in _c5_rows],
+                    [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
                     f"c5_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = survey completion rate.",
+                    x_labels=[_c5_labels[i] for i in _wsort],
+                    comp_override=[_c5_comp[i] for i in _wsort],
                 )
