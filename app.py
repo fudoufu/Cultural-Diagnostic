@@ -173,7 +173,7 @@ WOW_THEMES = [
     "Proactive Learning", "Reactive Learning",
     "Target-Driven Interactions", "Relationship-Led Working",
     "Plan-Based Working", "Agile Working",
-    "Recognise Contributions", "Value Individual Status",
+    "Recognise Contributions", "Status Awareness",
 ]
 
 OUTCOME_LABELS = [
@@ -205,6 +205,75 @@ WOW_ALL_COLS   = WOW_PLACE_COLS + WOW_IND_COLS
 OUTCOME_COLS   = [f"Q{i}" for i in range(55, 70)]   # Q55–Q69
 
 WOW_ALL_LABELS = [f"P · {t}" for t in WOW_THEMES] + [f"I · {t}" for t in WOW_THEMES]
+
+# Survey statement text for hover tooltips
+WOW_PLACE_STATEMENTS = {
+    "Collective Responsibility":    "Teamwork comes first here – it's about what we achieve together, not individually.",
+    "Individual Accountability":    "People are accountable for their own work and credited for their results.",
+    "Top-down Decision-making":     "Decisions are mostly made by senior people and passed down.",
+    "Autonomy over Decisions":      "People are trusted and encouraged to make decisions at their level.",
+    "Prioritise People's Well-Being": "People's wellbeing comes first in everyday work.",
+    "Prioritise Results":           "People make decisions based on what will get the best results.",
+    "Challenge Decisions":          "It's okay to question decisions and suggest different approaches.",
+    "Preserve Cohesion":            "People tend to avoid conflict, even when something needs to be said.",
+    "Follow Procedures":            "There are processes we must follow in how we work.",
+    "Adapt to Situation":           "People are free to step outside the process based on what's needed.",
+    "Stick to Current Ways":        "People tend to keep doing things the way they've always been done.",
+    "Experiment & Innovate":        "People are encouraged to try new things and new ways of working.",
+    "Prioritise Immediate Results": "People prioritise what will deliver results soon rather than further down the line.",
+    "Consider the Long Term":       "People consider what something will mean months or years down the line, not just right now.",
+    "Proactive Learning":           "People are always looking for ways to do things better around here.",
+    "Reactive Learning":            "We tend to fix things after they go wrong, not before.",
+    "Target-Driven Interactions":   "People mostly talk to each other when there's a specific task to deal with.",
+    "Relationship-Led Working":     "Building good relationships is seen as an important part of the job here.",
+    "Plan-Based Working":           "What we do and when we do it is mostly planned out in advance.",
+    "Agile Working":                "The work shapes the day – we change what we do based on what's needed at the time.",
+    "Recognise Contributions":      "People get credit for what they actually do and contribute.",
+    "Status Awareness":      "How senior you are tends to affect how people work with you and treat you.",
+}
+
+WOW_IND_STATEMENTS = {
+    "Collective Responsibility":    "I'm more focused on what we achieve as a team than what I achieve personally.",
+    "Individual Accountability":    "I like to be responsible for my own work and get on with it independently.",
+    "Top-down Decision-making":     "I prefer to know that the right people have approved a decision before moving forward.",
+    "Autonomy over Decisions":      "When something needs doing, I'm comfortable making a call and getting on with it.",
+    "Prioritise People's Well-Being": "When I have to make a tough decision, I think about the impact on my colleagues first.",
+    "Prioritise Results":           "Getting the job done is my main priority.",
+    "Challenge Decisions":          "When I disagree with something, I like to raise it.",
+    "Preserve Cohesion":            "I prefer to keep the peace and avoid disagreements.",
+    "Follow Procedures":            "I work best when there's a clear process to follow.",
+    "Adapt to Situation":           "I'm comfortable changing how I work depending on what the situation needs.",
+    "Stick to Current Ways":        "I prefer to stick with ways of doing things that I know work.",
+    "Experiment & Innovate":        "I often think about how things could be done differently.",
+    "Prioritise Immediate Results": "I focus on what needs to get done today rather than further ahead.",
+    "Consider the Long Term":       "I think about where things are heading in the long run whenever I make decisions about today.",
+    "Proactive Learning":           "I seek out opportunities to learn and improve regularly.",
+    "Reactive Learning":            "I mostly learn when something goes wrong and I have to figure it out.",
+    "Target-Driven Interactions":   "Most of my conversations with colleagues are about work.",
+    "Relationship-Led Working":     "I like to have close connections with my colleagues.",
+    "Plan-Based Working":           "I like to know the plan upfront and work to it.",
+    "Agile Working":                "I prefer to keep plans flexible and have my work shape my day.",
+    "Recognise Contributions":      "I care more about what someone can contribute than how long they've been here or what their job title is.",
+    "Status Awareness":      "I'm conscious of people's seniority and title when working with them.",
+}
+
+OUTCOME_STATEMENTS = {
+    "Intent to stay":            "I plan to stay with Somerset Council for the next 12 months.",
+    "Good place to work":        "I would recommend Somerset Council as a good place to work.",
+    "Feeling valued":            "I am valued as an employee of Somerset Council.",
+    "Sense of pride":            "I am proud of the culture and behaviours I see in my day-to-day work.",
+    "Sense of impact":           "I can see a link between what I do and the impact on the people who live in Somerset.",
+    "Empowered to be Effective": "I am empowered to do a good job.",
+    "Workload manageability":    "I find my workload manageable.",
+    "Role clarity":              "I know what is expected of me at work.",
+    "Voice heard":               "I think my views are heard by the organisation.",
+    "Psychological safety":      "I am confident to share any work issues with my colleagues/teams.",
+    "Breaking silos":            "I have a good sense of what's happening in other parts of the council.",
+    "Opportunity for contribution": "I can contribute to improvements in my area of work.",
+    "Meaningful LM time":        "The time I have with my line manager is meaningful to me.",
+    "LM effectiveness":          "I believe my line manager manages me effectively.",
+    "Employer rating":           "On a rating of 1–10, how do you feel as an employee of Somerset Council right now?",
+}
 
 Q9_ORDER = ["My directorate", "My service", "My immediate team", "Other"]
 
@@ -269,19 +338,55 @@ def load_data(file_bytes: bytes) -> pd.DataFrame:
 
     # Coalesce Q2–Q7 into a single service_area column
     sa_cols = [f"Q{i}" for i in range(2, 8)]
-    df["service_area"] = df[sa_cols].apply(
-        lambda row: next(
-            (str(v).strip() for v in row
-             if pd.notna(v) and str(v).strip() not in ("", "Not Answered")),
-            "Not Answered",
-        ),
-        axis=1,
-    )
+    _sa_col_to_dir = {
+        "Q2": "Adult Services and Housing",
+        "Q3": "Chief Exec's Office (including Executive and Service Directors)",
+        "Q4": "Children, Families and Education",
+        "Q5": "Finance and Procurement",
+        "Q6": "Community, Place and Economy",
+        "Q7": "Resources, Strategy and Transformation",
+    }
+
+    def _coalesce_service(row):
+        for col in sa_cols:
+            v = row[col]
+            if pd.notna(v) and str(v).strip() not in ("", "Not Answered"):
+                return str(v).strip(), col
+        return "Not Answered", None
+
+    _svc_result = df.apply(_coalesce_service, axis=1)
+    df["service_area"] = _svc_result.apply(lambda x: x[0])
+    _source_col    = _svc_result.apply(lambda x: x[1])
+
+    # Retrofit Q1 (directorate) based on which service column was filled in,
+    # prioritising the service data over the directorate selection for the ~10
+    # respondents where these disagree.
+    _inferred_dir = _source_col.map(_sa_col_to_dir)
+    _mismatch = _inferred_dir.notna() & (_inferred_dir != df["Q1"])
+    df.loc[_mismatch, "Q1"] = _inferred_dir[_mismatch]
 
     # Split service_area into svc_group (before " - " / " – ") and svc_name (after)
+    _ICT_SERVICES = {
+        "ICT Data and Analytics", "ICT Delivery", "ICT Infrastructure",
+        "ICT Security Operations", "ICT Transformation",
+    }
+    # Services sitting directly under their directorate with no intermediate
+    # service area — grouped under a placeholder so the two-level selector works
+    _NA_RESOURCES = {
+        "Democratic Services & Governance", "Legal",
+    }
+    _NA_COMMUNITY = {
+        "Income & Tenancy Management", "Property", "HRA Property",
+    }
+
     def _split_svc(val):
         if not val or val == "Not Answered":
             return "Not Answered", None
+        # Custom groupings
+        if val in _ICT_SERVICES:
+            return "ICT", val
+        if val in _NA_RESOURCES or val in _NA_COMMUNITY:
+            return "N/A — go to service", val
         parts = re.split(r" [–\-] ", val, maxsplit=1)
         if len(parts) == 2:
             return parts[0].strip(), parts[1].strip()
@@ -344,9 +449,26 @@ def get_filter_options(df: pd.DataFrame, col: str) -> list:
 
 
 # ── Visualisations ────────────────────────────────────────────────────────────────
-def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Figure:
+def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list,
+                 y_statements: dict = None, x_statements: dict = None) -> go.Figure:
     z = matrix.values.astype(float)
     text = np.where(np.isnan(z), "", np.round(z, 2).astype(str))
+    # Build customdata: each cell gets [y_statement, x_statement]
+    _all_stmts = {**WOW_PLACE_STATEMENTS, **WOW_IND_STATEMENTS, **OUTCOME_STATEMENTS}
+    _y_st = y_statements or _all_stmts
+    _x_st = x_statements or _all_stmts
+    customdata = [
+        [
+            [_y_st.get(y_labels[i], ""), _x_st.get(x_labels[j], "")]
+            for j in range(len(x_labels))
+        ]
+        for i in range(len(y_labels))
+    ]
+    hover = (
+        "<b>%{y}</b><br><i>%{customdata[0]}</i><br><br>"
+        "<b>%{x}</b><br><i>%{customdata[1]}</i><br><br>"
+        "r = %{z:.3f}<extra></extra>"
+    )
     fig = go.Figure(go.Heatmap(
         z=z,
         x=x_labels,
@@ -356,7 +478,8 @@ def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list) -> go.Fig
         text=text,
         texttemplate="%{text}",
         textfont={"size": 9, "color": "#1A2B3C"},
-        hovertemplate="%{y}<br>%{x}<br>r = %{z:.3f}<extra></extra>",
+        customdata=customdata,
+        hovertemplate=hover,
         colorbar=dict(title="r", tickvals=[-1, -0.5, 0, 0.5, 1], len=0.7),
     ))
     fig.update_layout(
@@ -382,16 +505,21 @@ def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
     pos_delta = [d if not np.isnan(d) and d >= 0 else np.nan for d in delta_vals]
     neg_delta = [d if not np.isnan(d) and d <  0 else np.nan for d in delta_vals]
 
+    _p_stmts = [WOW_PLACE_STATEMENTS.get(t, "") for t in WOW_THEMES]
+    _i_stmts = [WOW_IND_STATEMENTS.get(t, "") for t in WOW_THEMES]
+
     fig = go.Figure()
     fig.add_trace(go.Bar(
         name="Place (P)", x=WOW_THEMES, y=p_vals,
         marker_color=PRIMARY,
-        hovertemplate="%{x}<br>Place: %{y:.2f}<extra></extra>",
+        customdata=_p_stmts,
+        hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Place: %{y:.2f}<extra></extra>",
     ))
     fig.add_trace(go.Bar(
         name="Individual (I)", x=WOW_THEMES, y=i_vals,
         marker_color="#5A9BB5",
-        hovertemplate="%{x}<br>Individual: %{y:.2f}<extra></extra>",
+        customdata=_i_stmts,
+        hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Individual: %{y:.2f}<extra></extra>",
     ))
     fig.add_trace(go.Bar(
         name="Δ — Place higher", x=WOW_THEMES, y=pos_delta,
@@ -425,24 +553,49 @@ def make_wow_bar_chart(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None) -> go.Figure:
+def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None,
+                           council_df: pd.DataFrame = None,
+                           svc_area_df: pd.DataFrame = None) -> go.Figure:
     """Bar chart: average score for each employee experience outcome.
-    If overall_df is provided, adds a lighter overall bar for comparison."""
+    overall_df adds a directorate-level comparison bar.
+    council_df adds a council-wide comparison bar.
+    svc_area_df adds a service-area-level comparison bar."""
+    _o_stmts = [OUTCOME_STATEMENTS.get(lbl, "") for lbl in OUTCOME_LABELS]
     vals = [df[col].mean() for col in OUTCOME_COLS]
     fig = go.Figure()
     fig.add_trace(go.Bar(
         name="Selected group",
         x=OUTCOME_LABELS, y=vals,
         marker_color=PRIMARY,
-        hovertemplate="%{x}<br>Score: %{y:.2f}<extra></extra>",
+        customdata=_o_stmts,
+        hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Score: %{y:.2f}<extra></extra>",
     ))
+    if svc_area_df is not None:
+        fig.add_trace(go.Bar(
+            name="Service area overall",
+            x=OUTCOME_LABELS,
+            y=[svc_area_df[col].mean() for col in OUTCOME_COLS],
+            marker_color="#5A9BB5",
+            customdata=_o_stmts,
+            hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Service area overall: %{y:.2f}<extra></extra>",
+        ))
     if overall_df is not None:
         fig.add_trace(go.Bar(
-            name="Overall",
+            name="Directorate overall",
             x=OUTCOME_LABELS,
             y=[overall_df[col].mean() for col in OUTCOME_COLS],
             marker_color="#6BA3BA",
-            hovertemplate="%{x}<br>Overall: %{y:.2f}<extra></extra>",
+            customdata=_o_stmts,
+            hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Directorate overall: %{y:.2f}<extra></extra>",
+        ))
+    if council_df is not None:
+        fig.add_trace(go.Bar(
+            name="Council overall",
+            x=OUTCOME_LABELS,
+            y=[council_df[col].mean() for col in OUTCOME_COLS],
+            marker_color="#A8C8D8",
+            customdata=_o_stmts,
+            hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Council overall: %{y:.2f}<extra></extra>",
         ))
     fig.update_layout(
         barmode="group",
@@ -510,7 +663,8 @@ def render_heatmap_cards(n: int, matrix: pd.DataFrame, headcount: Optional[int] 
 
 def svc_selectors(tab_key: str, filtered_df: pd.DataFrame, directorates: list):
     """Directorate + two-level service area/service selectors.
-    Returns (chart_df, dir_df, selected_dir, is_overall)."""
+    Returns (chart_df, dir_df, selected_dir, is_overall, svc_area_df).
+    svc_area_df is the service area overall when a specific service is selected, else None."""
     _label_style = (
         '<p style="font-size:13px;font-weight:600;color:#5A7080;'
         'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px{extra}">{text}</p>'
@@ -529,36 +683,38 @@ def svc_selectors(tab_key: str, filtered_df: pd.DataFrame, directorates: list):
     n_dir = len(dir_df)
     svc_groups = get_filter_options(dir_df, "svc_group")
     if not svc_groups:
-        return dir_df, dir_df, sel_dir, True
+        return dir_df, dir_df, sel_dir, True, None
     # ── Service area ──────────────────────────────────────
     st.markdown(_label_style.format(extra=";margin-top:8px", text="Select service area"),
                 unsafe_allow_html=True)
-    _sg_prev = st.session_state.get(f"{tab_key}_sg", "Overall")
-    _sg_prev_df = dir_df if _sg_prev == "Overall" else dir_df[dir_df["svc_group"] == _sg_prev]
-    _sg_prev_hc = SERVICE_AREA_HEADCOUNT.get(_sg_prev) if _sg_prev != "Overall" else HEADCOUNT.get(sel_dir)
+    _SG_OVERALL = "Overall service area"
+    _sg_prev = st.session_state.get(f"{tab_key}_sg", _SG_OVERALL)
+    _sg_prev_df = dir_df if _sg_prev == _SG_OVERALL else dir_df[dir_df["svc_group"] == _sg_prev]
+    _sg_prev_hc = SERVICE_AREA_HEADCOUNT.get(_sg_prev) if _sg_prev != _SG_OVERALL else HEADCOUNT.get(sel_dir)
     _sg_prev_pct = f" ({len(_sg_prev_df) / _sg_prev_hc:.0%} of headcount)" if _sg_prev_hc else ""
     st.caption(f"{len(_sg_prev_df):,} respondents in **{_sg_prev}**{_sg_prev_pct}")
-    sg_opts = ["Overall"] + list(svc_groups)
+    sg_opts = [_SG_OVERALL] + list(svc_groups)
     sel_sg = st.radio("Select service area", sg_opts, horizontal=True,
                       label_visibility="collapsed", key=f"{tab_key}_sg")
-    if sel_sg == "Overall":
-        return dir_df, dir_df, sel_dir, True
+    if sel_sg == _SG_OVERALL:
+        return dir_df, dir_df, sel_dir, True, None
     sg_df = dir_df[dir_df["svc_group"] == sel_sg]
     sub_svcs = get_filter_options(sg_df, "svc_name")
     if not sub_svcs:
-        return sg_df, dir_df, sel_dir, False
+        return sg_df, dir_df, sel_dir, False, None
     # ── Service ───────────────────────────────────────────
     st.markdown(_label_style.format(extra=";margin-top:8px", text="Select service"),
                 unsafe_allow_html=True)
-    _svc_prev = st.session_state.get(f"{tab_key}_svc", "Overall")
-    _svc_prev_df = sg_df if _svc_prev == "Overall" else sg_df[sg_df["svc_name"] == _svc_prev] if _svc_prev in sg_df["svc_name"].values else sg_df
+    _SVC_OVERALL = "Overall service"
+    _svc_prev = st.session_state.get(f"{tab_key}_svc", _SVC_OVERALL)
+    _svc_prev_df = sg_df if _svc_prev == _SVC_OVERALL else sg_df[sg_df["svc_name"] == _svc_prev] if _svc_prev in sg_df["svc_name"].values else sg_df
     st.caption(f"{len(_svc_prev_df):,} respondents in **{_svc_prev}**")
-    svc_opts = ["Overall"] + list(sub_svcs)
+    svc_opts = [_SVC_OVERALL] + list(sub_svcs)
     sel_svc = st.radio("Select service", svc_opts, horizontal=True,
                        label_visibility="collapsed", key=f"{tab_key}_svc")
-    if sel_svc == "Overall":
-        return sg_df, dir_df, sel_dir, False
-    return sg_df[sg_df["svc_name"] == sel_svc], dir_df, sel_dir, False
+    if sel_svc == _SVC_OVERALL:
+        return sg_df, dir_df, sel_dir, False, None
+    return sg_df[sg_df["svc_name"] == sel_svc], dir_df, sel_dir, False, sg_df
 
 
 def render_summary_cards(n: int, top3_high: list, top3_low: list, headcount: Optional[int] = None):
@@ -1051,9 +1207,10 @@ directorates = get_filter_options(df, "Q1")
 q9_levels    = get_filter_options(df, "Q9")
 
 # ── Top-level section tabs ────────────────────────────────────────────────────────
-sec_a, sec_b = st.tabs([
+sec_a, sec_b, sec_c = st.tabs([
     "Section A: Council-Wide",
     "Section B — Directorate & Service Deep Dive",
+    "Section C — Org Health Analysis (temp)",
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════════
@@ -1106,6 +1263,19 @@ with sec_a:
                     'Recommended: 0.05</p>',
                     unsafe_allow_html=True)
 
+            # ── Org level filter ───────────────────────────────────────
+            _oda_q9_ordered = sorted(q9_levels, key=lambda x: next(
+                (i for i, o in enumerate(Q9_ORDER) if o.lower() == x.lower()), len(Q9_ORDER)))
+            st.markdown(
+                '<p style="font-size:13px;font-weight:600;color:#5A7080;'
+                'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">'
+                'Select org level</p>', unsafe_allow_html=True)
+            sel_oda_q9 = st.radio(
+                "Select org level", ["Overall"] + _oda_q9_ordered,
+                horizontal=True, label_visibility="collapsed", key="oda_q9"
+            )
+            oda_data = filtered if sel_oda_q9 == "Overall" else filtered[filtered["Q9"] == sel_oda_q9]
+
             if "Place" in wow_choice_oda:
                 oda_pred_cols = tuple(WOW_PLACE_COLS)
                 oda_col_to_lbl = dict(zip(WOW_PLACE_COLS, WOW_THEMES))
@@ -1116,7 +1286,7 @@ with sec_a:
 
             with st.spinner("Running outcome driver analysis…"):
                 oda_results = run_driver_analysis_batch(
-                    filtered,
+                    oda_data,
                     tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
                     oda_pred_cols, oda_pred_labels,
                     r_thresh_oda, p_thresh_oda,
@@ -1141,6 +1311,7 @@ with sec_a:
                     "A consistently positive theme scores high; mixed effects partially cancel out. "
                     "Red = net positive effect; blue = net negative."
                 )
+                _oda_c_stmts = WOW_PLACE_STATEMENTS if "Place" in wow_choice_oda else WOW_IND_STATEMENTS
                 _fig_oda_c = go.Figure(go.Bar(
                     x=_oda_labels,
                     y=_oda_scores,
@@ -1148,7 +1319,8 @@ with sec_a:
                     textposition="outside",
                     textfont=dict(color="#1A2B3C", size=10),
                     marker_color=[RED if s >= 0 else PRIMARY for s in _oda_scores],
-                    hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                    customdata=[_oda_c_stmts.get(lbl, "") for lbl in _oda_labels],
+                    hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Combined β = %{y:.3f}<extra></extra>",
                 ))
                 _fig_oda_c.update_layout(
                     font=dict(family="Inter", color="#1A2B3C"),
@@ -1316,6 +1488,7 @@ with sec_a:
                         coef_sorted = coef_df.reindex(
                             coef_df["β_std"].abs().sort_values(ascending=False).index
                         )
+                        _coef_stmts = WOW_PLACE_STATEMENTS if "Place" in wow_choice_oda else WOW_IND_STATEMENTS
                         fig_coef = go.Figure(go.Bar(
                             x=coef_sorted["label"],
                             y=coef_sorted["β_std"],
@@ -1326,7 +1499,8 @@ with sec_a:
                                 RED if v >= 0 else PRIMARY
                                 for v in coef_sorted["β_std"]
                             ],
-                            hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                            customdata=[_coef_stmts.get(lbl, "") for lbl in coef_sorted["label"]],
+                            hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>β = %{y:.3f}<extra></extra>",
                         ))
                         fig_coef.update_layout(
                             font=dict(family="Inter", color="#1A2B3C"),
@@ -1686,6 +1860,7 @@ with sec_a:
                             coef_sorted = coef_df.reindex(
                                 coef_df["β_std"].abs().sort_values(ascending=False).index
                             )
+                            _lf_coef_stmts = WOW_PLACE_STATEMENTS if "Place" in wow_choice_lf else WOW_IND_STATEMENTS
                             fig_lf_coef = go.Figure(go.Bar(
                                 x=coef_sorted["label"],
                                 y=coef_sorted["β_std"],
@@ -1696,7 +1871,8 @@ with sec_a:
                                     RED if v >= 0 else PRIMARY
                                     for v in coef_sorted["β_std"]
                                 ],
-                                hovertemplate="<b>%{x}</b><br>β (std) = %{y:.3f}<extra></extra>",
+                                customdata=[_lf_coef_stmts.get(lbl, "") for lbl in coef_sorted["label"]],
+                                hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>β = %{y:.3f}<extra></extra>",
                             ))
                             fig_lf_coef.update_layout(
                                 font=dict(family="Inter", color="#1A2B3C"),
@@ -1741,7 +1917,7 @@ with sec_a:
                         mat.index   = WOW_THEMES
                         mat.columns = OUTCOME_LABELS
                         render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
-                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
                                         use_container_width=True, key="a1_place")
                     with a1_ind:
                         st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
@@ -1757,7 +1933,7 @@ with sec_a:
                         mat.index   = WOW_THEMES
                         mat.columns = OUTCOME_LABELS
                         render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
-                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
                                         use_container_width=True, key="a1_ind")
 
                 # ── H2: Ways of Working × Ways of Working ────────────
@@ -1776,7 +1952,7 @@ with sec_a:
                         mat.index = mat.columns = WOW_THEMES
                         fill_diagonal_with_nan(mat)
                         render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
-                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_PLACE_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
                                         use_container_width=True, key="a2_place")
                     with a2_ind:
                         st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
@@ -1791,7 +1967,7 @@ with sec_a:
                         mat.index = mat.columns = WOW_THEMES
                         fill_diagonal_with_nan(mat)
                         render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
-                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_IND_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
                                         use_container_width=True, key="a2_ind")
 
                 # ── H3: Outcomes × Outcomes ───────────────────────────
@@ -1808,7 +1984,7 @@ with sec_a:
                     mat.index = mat.columns = OUTCOME_LABELS
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_total, mat, TOTAL_HEADCOUNT)
-                    st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
+                    st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS, y_statements=OUTCOME_STATEMENTS, x_statements=OUTCOME_STATEMENTS),
                                     use_container_width=True, key="a3")
 
         # ── Descriptive Analysis group ────────────────────────
@@ -1986,6 +2162,24 @@ with sec_a:
                 dir_df = filtered[filtered["Q1"] == selected_dir]
                 n_dir  = len(dir_df)
 
+                # ── Service area selector ──────────────────────────────────
+                _b1_svc_groups = get_filter_options(dir_df, "svc_group")
+                st.markdown(
+                    '<p style="font-size:13px;font-weight:600;color:#5A7080;text-transform:uppercase;'
+                    'letter-spacing:0.06em;margin-bottom:4px;margin-top:8px">Select Service Area</p>',
+                    unsafe_allow_html=True,
+                )
+                _b1_prev_sg = st.session_state.get("b1_oda_sg", "Overall service area")
+                _b1_prev_sg_df = dir_df if _b1_prev_sg == "Overall service area" else dir_df[dir_df["svc_group"] == _b1_prev_sg] if _b1_prev_sg in _b1_svc_groups else dir_df
+                _b1_prev_sg_hc = SERVICE_AREA_HEADCOUNT.get(_b1_prev_sg) if _b1_prev_sg != "Overall service area" else HEADCOUNT.get(selected_dir)
+                _b1_prev_sg_pct = f" ({len(_b1_prev_sg_df) / _b1_prev_sg_hc:.0%} of headcount)" if _b1_prev_sg_hc else ""
+                st.caption(f"{len(_b1_prev_sg_df):,} respondents in **{_b1_prev_sg}**{_b1_prev_sg_pct}")
+                sel_b1_sg = st.radio(
+                    "Select service area", ["Overall service area"] + list(_b1_svc_groups),
+                    horizontal=True, label_visibility="collapsed", key="b1_oda_sg"
+                )
+                oda_input_df = dir_df if sel_b1_sg == "Overall service area" else dir_df[dir_df["svc_group"] == sel_b1_sg]
+
                 # ── Controls ──────────────────────────────────────────────
                 oda_c1, oda_c2, oda_c3 = st.columns([3, 2, 2])
                 with oda_c1:
@@ -2020,7 +2214,7 @@ with sec_a:
 
                 with st.spinner("Running outcome driver analysis…"):
                     oda_results = run_driver_analysis_batch(
-                        dir_df,
+                        oda_input_df,
                         tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
                         oda_pred_cols, oda_pred_labels,
                         r_thresh_oda, p_thresh_oda,
@@ -2458,6 +2652,7 @@ with sec_a:
                             "positive theme scores high; one with mixed effects across factors will partially "
                             "cancel out. Red = net positive effect; blue = net negative."
                         )
+                        _lf_c_stmts = WOW_PLACE_STATEMENTS if "Place" in wow_choice_lf else WOW_IND_STATEMENTS
                         fig_combined = go.Figure(go.Bar(
                             x=_cb_labels,
                             y=_cb_scores,
@@ -2465,7 +2660,8 @@ with sec_a:
                             textposition="outside",
                             textfont=dict(color="#1A2B3C", size=10),
                             marker_color=[RED if s >= 0 else PRIMARY for s in _cb_scores],
-                            hovertemplate="<b>%{x}</b><br>Combined β = %{y:.3f}<extra></extra>",
+                            customdata=[_lf_c_stmts.get(lbl, "") for lbl in _cb_labels],
+                            hovertemplate="<b>%{x}</b><br><i>%{customdata}</i><br>Combined β = %{y:.3f}<extra></extra>",
                         ))
                         fig_combined.update_layout(
                             font=dict(family="Inter", color="#1A2B3C"),
@@ -2668,7 +2864,7 @@ with sec_a:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
                                     use_container_width=True, key="bh1_place")
                 with a1_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
@@ -2684,7 +2880,7 @@ with sec_a:
                     mat.index   = WOW_THEMES
                     mat.columns = OUTCOME_LABELS
                     render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES),
+                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
                                     use_container_width=True, key="bh1_ind")
 
             # ── H2: Ways of Working × Ways of Working ────────────
@@ -2703,7 +2899,7 @@ with sec_a:
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_PLACE_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
                                     use_container_width=True, key="bh2_place")
                 with a2_ind:
                     st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
@@ -2718,7 +2914,7 @@ with sec_a:
                     mat.index = mat.columns = WOW_THEMES
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES),
+                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_IND_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
                                     use_container_width=True, key="bh2_ind")
 
             # ── H3: Outcomes × Outcomes ───────────────────────────
@@ -2735,7 +2931,7 @@ with sec_a:
                 mat.index = mat.columns = OUTCOME_LABELS
                 fill_diagonal_with_nan(mat)
                 render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS),
+                st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS, y_statements=OUTCOME_STATEMENTS, x_statements=OUTCOME_STATEMENTS),
                                 use_container_width=True, key="bh3")
 
     # ── Descriptive Analysis group ────────────────────────
@@ -2747,20 +2943,589 @@ with sec_a:
 
         # ── B4 ────────────────────────────────────────────────
         with b4:
-            st.caption("Average scores for each Way of Working theme, split by Place and Individual, for the selected directorate, service area, and service.")
-            chart_df, dir_df, selected_dir, _b4_overall = svc_selectors("b4", filtered, directorates)
-            _hc_b4 = HEADCOUNT.get(selected_dir) if _b4_overall else None
-            _pct_b4 = f" ({len(chart_df) / _hc_b4:.0%} of headcount)" if _hc_b4 else ""
-            st.markdown("#### Ways of Working — Average Scores by Service Area")
-            st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
+            b4_sub, b4_org = st.tabs([
+                "B2.1.1 · WoW — Place vs. Individual",
+                "B2.1.2 · WoW — Org Breakdown",
+            ])
+
+            with b4_sub:
+                st.caption("Average scores for each Way of Working theme, split by Place and Individual, for the selected directorate, service area, and service.")
+                chart_df, dir_df, selected_dir, _b4_overall, _b4_svc_area_df = svc_selectors("b4", filtered, directorates)
+                st.markdown("#### Ways of Working — Average Scores by Service Area")
+                st.plotly_chart(make_wow_bar_chart(chart_df), use_container_width=True, key="b4_bar")
+
+            with b4_org:
+                _b4_org_p, _b4_org_i = st.tabs(["Place (P)", "Individual (I)"])
+
+                def _render_hier_wow(wow_cols, sel_key, chart_key):
+                    st.caption(
+                        "For each Way of Working theme, compares the selected service against its "
+                        "service area overall, directorate overall, and council overall."
+                    )
+                    _cdf, _ddf, _sel_dir, _is_overall, _svc_area_df = svc_selectors(sel_key, filtered, directorates)
+
+                    def _bar(name, df, colour):
+                        return go.Bar(
+                            name=name, x=WOW_THEMES,
+                            y=[df[c].mean() for c in wow_cols],
+                            marker_color=colour,
+                            hovertemplate=f"{name}<br>%{{x}}<br>Score: %{{y:.2f}}<extra></extra>",
+                        )
+
+                    fig = go.Figure()
+                    fig.add_trace(_bar("Selected group", _cdf, PRIMARY))
+                    if _svc_area_df is not None:
+                        fig.add_trace(_bar("Service area overall", _svc_area_df, "#5A9BB5"))
+                    if not _is_overall:
+                        fig.add_trace(_bar("Directorate overall", _ddf, "#6BA3BA"))
+                    fig.add_trace(_bar("Council overall", filtered, "#A8C8D8"))
+                    fig.update_layout(
+                        barmode="group",
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=10, b=180),
+                        xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+                        yaxis=dict(
+                            title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
+                            range=[0, 5.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                        ),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                    font=dict(color="#1A2B3C", size=12)),
+                        height=560,
+                    )
+                    st.markdown("#### Ways of Working — Average Score by Directorate / Service Area / Service")
+                    st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+                with _b4_org_p:
+                    _render_hier_wow(WOW_PLACE_COLS, "b4_org_p", "b4_org_p_bar")
+                with _b4_org_i:
+                    _render_hier_wow(WOW_IND_COLS, "b4_org_i", "b4_org_i_bar")
 
         # ── B5 ────────────────────────────────────────────────
         with b5:
             st.caption("Average scores for each employee experience outcome for the selected service area, compared against the directorate-wide average.")
-            chart_df, dir_df, selected_dir, _b5_overall = svc_selectors("b5", filtered, directorates)
+            chart_df, dir_df, selected_dir, _b5_overall, _b5_svc_area_df = svc_selectors("b5", filtered, directorates)
             overall_df = None if _b5_overall else dir_df
+            council_df = filtered
             _hc_b5 = HEADCOUNT.get(selected_dir) if _b5_overall else None
             _pct_b5 = f" ({len(chart_df) / _hc_b5:.0%} of headcount)" if _hc_b5 else ""
-            st.markdown("#### Employee Experience — Average Scores by Service Area")
-            st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df), use_container_width=True,
+            st.markdown("#### Employee Experience — Average Score by Directorate / Service Area / Service")
+            st.plotly_chart(make_outcome_bar_chart(chart_df, overall_df, council_df, _b5_svc_area_df), use_container_width=True,
                             key="b5_bar")
+
+
+with sec_c:
+    c1, c2, c3, c4, c5 = st.tabs([
+        "C1 · Mandatory Training",
+        "C2 · Sickness",
+        "C3 · Turnover",
+        "C4 · Procurement",
+        "C5 · Survey Completion",
+    ])
+    with c1:
+        c1_1, c1_2 = st.tabs([
+            "C1.1 · Employee Experience",
+            "C1.2 · Ways of Working",
+        ])
+
+        # ── Shared data: service map and training completion ───────────
+        C1_SERVICE_MAP = [
+            ("AdultsCommg",                   lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+            ("AdltOps HIS & IC",              lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "CHC, HIS and Intermediate Care")]),
+            ("AdltOps Nbhd MH & LD",          lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"].isin(["Neighbourhoods", "Mental Health", "Learning Disabilities"]))]),
+            ("AdltOps OT",                    lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Occupational Therapy: Staff Dev, SILC and DFG")]),
+            ("AdltOps Social Work",           lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Social Work: Staff Dev, Safeguarding, MCA & DoLS")]),
+            ("Adlts Housing General Fund",    lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+            ("CEO-ExecDir-ServDir",           lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Exec and Service Directors")]),
+            ("CEO & Elections",               lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+            ("CEO-Elections",                 lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+            ("C&F CLA Leaving Care & CWD",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "CLA Leaving Care and CWD")]),
+            ("C&F Fostering & Permanence",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Fostering and Kinship")]),
+            ("C&F Help & Protect",            lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Help and Protect")]),
+            ("C&F Prevention & YJ",           lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Prevention and Youth Justice")]),
+            ("C&F Public Health Nursing",     lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Public Health Nursing")]),
+            ("C&F QA & Partnerships",         lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "QA and Partnerships")]),
+            ("CFE-C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+            ("Chld Commissioning & Perf",     lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+            ("Chld Comm BusinessOps",         lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["svc_name"] == "Business Operations")]),
+            ("Educ Curriculum & Training",    lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Curriculum and Training")]),
+            ("Educ EP & SEND",                lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "SEND Assessment and Review and Principal Educational Psychologist")]),
+            ("Educ Leadership",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Leadership")]),
+            ("Educ Operations",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Operations")]),
+            ("Educ Places",                   lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Places")]),
+            ("Educ Virtual School",           lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Virtual School")]),
+            ("Finance & Procurement",         lambda d: d[d["Q1"] == "Finance and Procurement"]),
+            ("Revs & Bens",                   lambda d: d[d["svc_name"] == "Revenues and Benefits"]),
+            ("EcDev Skills & Climate",        lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+            ("HRA Housing",                   lambda d: d[d["svc_name"] == "HRA Property"]),
+            ("Infr&Trans Highways",           lambda d: d[(d["svc_name"] == "Highways") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Infr&Trans Infra Programmes",   lambda d: d[d["svc_name"] == "Infrastructure Programmes"]),
+            ("Infr&Trans Traffic RS&Parking", lambda d: d[d["svc_name"] == "Traffic Management RS and Parking"]),
+            ("Infr&Trans Transportation",     lambda d: d[d["svc_name"] == "Transportation"]),
+            ("Partnership Loc & Culture",     lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+            ("Planning",                      lambda d: d[d["svc_group"] == "Planning"]),
+            ("Property",                      lambda d: d[d["svc_name"] == "Property"]),
+            ("Reg&Ops Customer Ops",          lambda d: d[d["svc_name"] == "Customer Operations"]),
+            ("Reg&Ops Lifeline & OOH",        lambda d: d[d["svc_name"] == "Lifeline & OOH"]),
+            ("Reg&Ops Operations",            lambda d: d[d["svc_name"] == "Operations"]),
+            ("Reg&Ops Regulatory Services",   lambda d: d[d["svc_name"] == "Regulatory Services"]),
+            ("Regs&Ops Waste & Scientific",   lambda d: d[d["svc_name"].isin(["Waste", "Scientific Services"])]),
+            ("Democratic Services & Gov",     lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+            ("ICT",                           lambda d: d[d["svc_group"] == "ICT"]),
+            ("HR&OD",                         lambda d: d[d["svc_group"] == "HR and OD"]),
+            ("Legal",                         lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+            ("Public Health",                 lambda d: d[d["svc_group"] == "Public Health"]),
+            ("Strategy & Performance",        lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+        ]
+
+        C1_TRAINING = {
+            "AdultsCommg": 93, "AdltOps HIS & IC": 82, "AdltOps Nbhd MH & LD": 87,
+            "AdltOps OT": 89, "AdltOps Social Work": 82, "Adlts Housing General Fund": 84,
+            "CEO-ExecDir-ServDir": 87, "CEO & Elections": 100, "CEO-Elections": 91,
+            "C&F CLA Leaving Care & CWD": 78, "C&F Fostering & Permanence": 83,
+            "C&F Help & Protect": 71, "C&F Prevention & YJ": 93,
+            "C&F Public Health Nursing": 96, "C&F QA & Partnerships": 83,
+            "CFE-C&F": 52, "Chld Commissioning & Perf": 89, "Chld Comm BusinessOps": 99,
+            "Educ Curriculum & Training": 82, "Educ EP & SEND": 80,
+            "Educ Leadership": 96, "Educ Operations": 90, "Educ Places": 95,
+            "Educ Virtual School": 90, "Finance & Procurement": 97, "Revs & Bens": 93,
+            "EcDev Skills & Climate": 82, "HRA Housing": 96, "Infr&Trans Highways": 83,
+            "Infr&Trans Infra Programmes": 90, "Infr&Trans Traffic RS&Parking": 94,
+            "Infr&Trans Transportation": 37, "Partnership Loc & Culture": 92,
+            "Planning": 75, "Property": 94, "Reg&Ops Customer Ops": 99,
+            "Reg&Ops Lifeline & OOH": 96, "Reg&Ops Operations": 92,
+            "Reg&Ops Regulatory Services": 88, "Regs&Ops Waste & Scientific": 98,
+            "Democratic Services & Gov": 74, "ICT": 94, "HR&OD": 97,
+            "Legal": 69, "Public Health": 99, "Strategy & Performance": 95,
+        }
+
+        # Pre-compute per-service filtered dataframes
+        _c1_rows = [(lbl, fn(filtered)) for lbl, fn in C1_SERVICE_MAP]
+        _c1_rows = [(lbl, sub) for lbl, sub in _c1_rows if len(sub) > 0]
+        _c1_labels = [r[0] for r in _c1_rows]
+        _c1_training = [C1_TRAINING.get(lbl) for lbl in _c1_labels]
+
+        def _c1_dual_chart(y_vals, y_title, chart_key, caption_text):
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=y_title, x=_c1_labels, y=y_vals,
+                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name="Training Completion %", x=_c1_labels, y=_c1_training,
+                text=[f"{t}%" if t is not None else "" for t in _c1_training],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                hovertemplate="<b>%{x}</b><br>Training completion: %{y}%<extra></extra>",
+            ))
+            fig.update_layout(
+                barmode="group",
+                font=dict(family="Inter", color="#1A2B3C"),
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                margin=dict(l=10, r=60, t=40, b=200),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                yaxis=dict(
+                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                ),
+                yaxis2=dict(
+                    title=dict(text="Training Completion (%)", font=dict(color="#C0392B", size=10)),
+                    overlaying="y", side="right", range=[0, 130],
+                    tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(color="#1A2B3C", size=11)),
+                height=600,
+            )
+            st.caption(caption_text)
+            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+        with c1_1:
+            st.markdown("#### Employee Experience vs Training Completion — by Service")
+            _c1_ee_scores = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c1_rows]
+            _c1_dual_chart(
+                _c1_ee_scores,
+                "Avg EE Score (1=Agree → 5=Disagree)",
+                "c1_1_bar",
+                "Blue bars = average employee experience score across all 15 outcome questions (left axis, lower = more positive). Red bars = mandatory training completion rate (right axis).",
+            )
+
+        with c1_2:
+            st.markdown("#### Ways of Working vs Training Completion — by Service")
+            for _wi, _wt in enumerate(WOW_THEMES):
+                _wc = WOW_PLACE_COLS[_wi]
+                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                st.markdown(f"##### {_wt}")
+                if _ws:
+                    st.caption(f'"{_ws}"')
+                _c1_dual_chart(
+                    [sub[_wc].mean() for _, sub in _c1_rows],
+                    f"{_wt} (Place) — Avg Score",
+                    f"c1_2_bar_{_wi}",
+                    f"Blue = average score for '{_wt}' (Place). Red = mandatory training completion rate.",
+                )
+    with c2:
+        c2_1, c2_2 = st.tabs(["C2.1 · Employee Experience", "C2.2 · Ways of Working"])
+
+        C23_SERVICE_MAP = [
+            ("Legal (RST)",               lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+            ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+            ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+            ("HRA Property (CPE)",        lambda d: d[d["svc_name"] == "HRA Property"]),
+            ("Education (CFE)",           lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
+            ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Children & Families (CFE)", lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+            ("Adults Operations (ASH)",   lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+            ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+            ("Property (CPE)",            lambda d: d[d["svc_name"] == "Property"]),
+            ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
+            ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+            ("Democratic & Gov (RST)",    lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+            ("EcDev (CPE)",               lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+            ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
+            ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
+            ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
+            ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+            ("Commissioning & Perf (CFE)",lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+            ("ICT (RST)",                 lambda d: d[d["svc_group"] == "ICT"]),
+            ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+        ]
+
+        C2_SICKNESS = {
+            "Legal (RST)": 7.77, "Housing (ASH)": 6.83, "Electoral Services": 6.41,
+            "HRA Property (CPE)": 6.08, "Education (CFE)": 5.98, "Infra & Transport (CPE)": 5.75,
+            "Children & Families (CFE)": 5.62, "Adults Operations (ASH)": 5.21,
+            "CEO Office & Directors": 4.98, "Property (CPE)": 4.92,
+            "Public Health (RST)": 4.90, "Reg & Ops (CPE)": 4.89,
+            "Adults Commissioning": 4.79, "Democratic & Gov (RST)": 4.72,
+            "EcDev (CPE)": 4.65, "HR&OD (RST)": 4.45, "Planning (CPE)": 4.44,
+            "Finance & Procurement": 4.39, "Partnership Loc & Culture": 4.31,
+            "Commissioning & Perf (CFE)": 4.31, "ICT (RST)": 4.21,
+            "Strategy & Comms (RST)": 3.64,
+        }
+
+        _c23_rows = [(lbl, fn(filtered)) for lbl, fn in C23_SERVICE_MAP]
+        _c23_rows = [(lbl, sub) for lbl, sub in _c23_rows if len(sub) > 0]
+        _c23_labels = [r[0] for r in _c23_rows]
+        _c2_comp = [C2_SICKNESS.get(lbl) for lbl in _c23_labels]
+
+        def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text):
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=y_title, x=_c23_labels, y=y_vals,
+                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name=comp_title, x=_c23_labels, y=comp_vals,
+                text=[f"{v}{comp_suffix}" if v is not None else "" for v in comp_vals],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color=comp_color, yaxis="y2", offsetgroup=1,
+                hovertemplate="<b>%{x}</b><br>" + comp_title + ": %{y}" + comp_suffix + "<extra></extra>",
+            ))
+            fig.update_layout(
+                barmode="group",
+                font=dict(family="Inter", color="#1A2B3C"),
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                margin=dict(l=10, r=60, t=40, b=200),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                yaxis=dict(
+                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                    range=y_range, tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                ),
+                yaxis2=dict(
+                    title=dict(text=comp_title, font=dict(color=comp_color, size=10)),
+                    overlaying="y", side="right", range=comp_range,
+                    tickfont=dict(size=10, color=comp_color), showgrid=False,
+                    ticksuffix=comp_suffix,
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(color="#1A2B3C", size=11)),
+                height=600,
+            )
+            st.caption(caption_text)
+            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+        with c2_1:
+            st.markdown("#### Employee Experience vs Sickness Absence — by Service")
+            _c2_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
+            _c23_dual_chart(
+                _c2_ee, "Avg EE Score (1=Agree → 5=Disagree)",
+                _c2_comp, "Avg Sickness Days", " days", "#E07070",
+                [0, 6.5], [0, 10],
+                "c2_1_bar",
+                "Blue = average EE score (left axis, lower = more positive). Red = average sickness absence days (right axis).",
+            )
+
+        with c2_2:
+            st.markdown("#### Ways of Working vs Sickness Absence — by Service")
+            for _wi, _wt in enumerate(WOW_THEMES):
+                _wc = WOW_PLACE_COLS[_wi]
+                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                st.markdown(f"##### {_wt}")
+                if _ws:
+                    st.caption(f'"{_ws}"')
+                _c23_dual_chart(
+                    [sub[_wc].mean() for _, sub in _c23_rows],
+                    f"{_wt} (Place) — Avg Score",
+                    _c2_comp, "Avg Sickness Days", " days", "#E07070",
+                    [0, 6.5], [0, 10],
+                    f"c2_2_bar_{_wi}",
+                    f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
+                )
+    with c3:
+        c3_1, c3_2 = st.tabs(["C3.1 · Employee Experience", "C3.2 · Ways of Working"])
+
+        C3_TURNOVER = {
+            "Legal (RST)": 1.20, "Housing (ASH)": 0.67, "Electoral Services": None,
+            "HRA Property (CPE)": 0.72, "Education (CFE)": 1.92, "Infra & Transport (CPE)": 0.68,
+            "Children & Families (CFE)": 0.81, "Adults Operations (ASH)": 0.93,
+            "CEO Office & Directors": 1.21, "Property (CPE)": 0.76,
+            "Public Health (RST)": 0.63, "Reg & Ops (CPE)": 0.99,
+            "Adults Commissioning": None, "Democratic & Gov (RST)": 1.52,
+            "EcDev (CPE)": 1.04, "HR&OD (RST)": 0.36, "Planning (CPE)": 0.46,
+            "Finance & Procurement": 0.46, "Partnership Loc & Culture": 0.51,
+            "Commissioning & Perf (CFE)": 0.55, "ICT (RST)": 0.41,
+            "Strategy & Comms (RST)": 0.35,
+        }
+
+        _c3_comp = [C3_TURNOVER.get(lbl) for lbl in _c23_labels]
+
+        with c3_1:
+            st.markdown("#### Employee Experience vs Turnover — by Service")
+            _c3_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
+            _c23_dual_chart(
+                _c3_ee, "Avg EE Score (1=Agree → 5=Disagree)",
+                _c3_comp, "Turnover (%)", "%", "#E07070",
+                [0, 6.5], [0, 3],
+                "c3_1_bar",
+                "Blue = average EE score (left axis, lower = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
+            )
+
+        with c3_2:
+            st.markdown("#### Ways of Working vs Turnover — by Service")
+            for _wi, _wt in enumerate(WOW_THEMES):
+                _wc = WOW_PLACE_COLS[_wi]
+                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                st.markdown(f"##### {_wt}")
+                if _ws:
+                    st.caption(f'"{_ws}"')
+                _c23_dual_chart(
+                    [sub[_wc].mean() for _, sub in _c23_rows],
+                    f"{_wt} (Place) — Avg Score",
+                    _c3_comp, "Turnover (%)", "%", "#E07070",
+                    [0, 6.5], [0, 3],
+                    f"c3_2_bar_{_wi}",
+                    f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
+                )
+    with c4:
+        c4_1, c4_2 = st.tabs(["C4.1 · Employee Experience", "C4.2 · Ways of Working"])
+
+        C4_SERVICE_MAP = [
+            ("C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+            ("Adults Services (ASH)",     lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+            ("HRA (ASH)",                 lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+            ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+            ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
+            ("Climate (CPE)",             lambda d: d[(d["svc_name"] == "Climate and Natural Environment")]),
+            ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Partnership & Loc (CPE)",   lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+            ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+            ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
+            ("Digital Services (RST)",    lambda d: d[d["svc_group"] == "ICT"]),
+            ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+            ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
+            ("Procurement (CFO)",         lambda d: d[d["svc_name"] == "Procurement"]),
+            ("Finance (CFO)",             lambda d: d[(d["Q1"] == "Finance and Procurement") & (d["svc_name"] != "Procurement")]),
+            ("CEO Office",                lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+        ]
+
+        C4_PROCUREMENT = {
+            "C&F": 6, "Adults Services (ASH)": 20, "HRA (ASH)": 0, "Housing (ASH)": 23,
+            "Infra & Transport (CPE)": 11, "Planning (CPE)": 8, "Climate (CPE)": 6,
+            "Reg & Ops (CPE)": 5, "Partnership & Loc (CPE)": 0, "EcDev Skills & Climate": 3,
+            "HR&OD (RST)": 0, "Digital Services (RST)": 4, "Strategy & Comms (RST)": 0,
+            "Public Health (RST)": 0, "Procurement (CFO)": 0, "Finance (CFO)": 1,
+            "CEO Office": 0,
+        }
+
+        _c4_rows = [(lbl, fn(filtered)) for lbl, fn in C4_SERVICE_MAP]
+        _c4_rows = [(lbl, sub) for lbl, sub in _c4_rows if len(sub) > 0]
+        _c4_labels = [r[0] for r in _c4_rows]
+        _c4_comp = [C4_PROCUREMENT.get(lbl) for lbl in _c4_labels]
+
+        def _c4_dual_chart(y_vals, y_title, chart_key, caption_text):
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=y_title, x=_c4_labels, y=y_vals,
+                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name="No. of Procurement Breaches", x=_c4_labels, y=_c4_comp,
+                text=[str(v) if v is not None else "" for v in _c4_comp],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                hovertemplate="<b>%{x}</b><br>Procurement breaches: %{y}<extra></extra>",
+            ))
+            fig.update_layout(
+                barmode="group",
+                font=dict(family="Inter", color="#1A2B3C"),
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                margin=dict(l=10, r=60, t=40, b=200),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                yaxis=dict(
+                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                ),
+                yaxis2=dict(
+                    title=dict(text="No. of Procurement Breaches", font=dict(color="#C0392B", size=10)),
+                    overlaying="y", side="right", range=[0, 30],
+                    tickfont=dict(size=10, color="#C0392B"), showgrid=False,
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(color="#1A2B3C", size=11)),
+                height=600,
+            )
+            st.caption(caption_text)
+            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+        with c4_1:
+            st.markdown("#### Employee Experience vs Procurement Breaches — by Service")
+            _c4_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c4_rows]
+            _c4_dual_chart(
+                _c4_ee,
+                "Avg EE Score (1=Agree → 5=Disagree)",
+                "c4_1_bar",
+                "Blue = average EE score (left axis, lower = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
+            )
+
+        with c4_2:
+            st.markdown("#### Ways of Working vs Procurement Breaches — by Service")
+            for _wi, _wt in enumerate(WOW_THEMES):
+                _wc = WOW_PLACE_COLS[_wi]
+                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                st.markdown(f"##### {_wt}")
+                if _ws:
+                    st.caption(f'"{_ws}"')
+                _c4_dual_chart(
+                    [sub[_wc].mean() for _, sub in _c4_rows],
+                    f"{_wt} (Place) — Avg Score",
+                    f"c4_2_bar_{_wi}",
+                    f"Blue = average score for '{_wt}' (Place). Red = procurement breaches.",
+                )
+    with c5:
+        c5_1, c5_2 = st.tabs(["C5.1 · Employee Experience", "C5.2 · Ways of Working"])
+
+        C5_SERVICE_MAP = [
+            ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+            ("Adults Operations",         lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+            ("Housing",                   lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+            ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+            ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+            ("Children & Families",       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+            ("Commissioning & Perf",      lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+            ("Education",                 lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
+            ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+            ("HRA & Property",            lambda d: d[d["svc_name"].isin(["HRA Property", "Property"])]),
+            ("Infra & Transport",         lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+            ("Planning",                  lambda d: d[d["svc_group"] == "Planning"]),
+            ("Reg & Ops",                 lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+            ("Democratic & Gov",          lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+            ("ICT Services",              lambda d: d[d["svc_group"] == "ICT"]),
+            ("HR&OD",                     lambda d: d[d["svc_group"] == "HR and OD"]),
+            ("Legal",                     lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+            ("Public Health",             lambda d: d[d["svc_group"] == "Public Health"]),
+            ("Strategy & Comms",          lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+            ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
+        ]
+
+        C5_COMPLETION = {
+            "Adults Commissioning": 91.4, "Adults Operations": 34.1, "Housing": 45.8,
+            "Electoral Services": 33.3, "CEO Office & Directors": 155.0,
+            "Children & Families": 22.2, "Commissioning & Perf": 32.9,
+            "Education": 36.7, "EcDev Skills & Climate": 42.4, "HRA & Property": 22.9,
+            "Infra & Transport": 43.5, "Partnership Loc & Culture": 52.1,
+            "Planning": 51.9, "Reg & Ops": 34.7, "Democratic & Gov": 59.1,
+            "ICT Services": 38.4, "HR&OD": 72.0, "Legal": 47.1,
+            "Public Health": 47.0, "Strategy & Comms": 76.0,
+            "Finance & Procurement": 43.9,
+        }
+
+        _c5_rows = [(lbl, fn(filtered)) for lbl, fn in C5_SERVICE_MAP]
+        _c5_rows = [(lbl, sub) for lbl, sub in _c5_rows if len(sub) > 0]
+        _c5_labels = [r[0] for r in _c5_rows]
+        _c5_comp = [C5_COMPLETION.get(lbl) for lbl in _c5_labels]
+
+        def _c5_dual_chart(y_vals, y_title, chart_key, caption_text):
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=y_title, x=_c5_labels, y=y_vals,
+                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name="Survey Completion %", x=_c5_labels, y=_c5_comp,
+                text=[f"{v:.1f}%" if v is not None else "" for v in _c5_comp],
+                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                hovertemplate="<b>%{x}</b><br>Survey completion: %{y:.1f}%<extra></extra>",
+            ))
+            fig.update_layout(
+                barmode="group",
+                font=dict(family="Inter", color="#1A2B3C"),
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                margin=dict(l=10, r=60, t=40, b=200),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                yaxis=dict(
+                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                ),
+                yaxis2=dict(
+                    title=dict(text="Survey Completion (%)", font=dict(color="#C0392B", size=10)),
+                    overlaying="y", side="right", range=[0, 170],
+                    tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                            font=dict(color="#1A2B3C", size=11)),
+                height=600,
+            )
+            st.caption(caption_text)
+            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+        with c5_1:
+            st.markdown("#### Employee Experience vs Survey Completion — by Service")
+            _c5_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c5_rows]
+            _c5_dual_chart(
+                _c5_ee,
+                "Avg EE Score (1=Agree → 5=Disagree)",
+                "c5_1_bar",
+                "Blue = average EE score (left axis, lower = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
+            )
+
+        with c5_2:
+            st.markdown("#### Ways of Working vs Survey Completion — by Service")
+            for _wi, _wt in enumerate(WOW_THEMES):
+                _wc = WOW_PLACE_COLS[_wi]
+                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                st.markdown(f"##### {_wt}")
+                if _ws:
+                    st.caption(f'"{_ws}"')
+                _c5_dual_chart(
+                    [sub[_wc].mean() for _, sub in _c5_rows],
+                    f"{_wt} (Place) — Avg Score",
+                    f"c5_2_bar_{_wi}",
+                    f"Blue = average score for '{_wt}' (Place). Red = survey completion rate.",
+                )
