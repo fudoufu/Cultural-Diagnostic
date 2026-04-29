@@ -1,0 +1,48 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  azureServiceConnection: 'AZDGNP-SERCON-SCCT'
+  appServiceName: 'AZDGNP-SCCTWA01'
+  startupCommand: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0 --server.enableXsrfProtection false'
+
+stages:
+- stage: Build
+  jobs:
+    - job: Package
+      steps:
+        - task: ArchiveFiles@2
+          inputs:
+            rootFolderOrFile: '$(Build.SourcesDirectory)'
+            includeRootFolder: false
+            archiveType: 'zip'
+            archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+            replaceExistingArchive: true
+
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/app.zip'
+            artifact: 'app'
+
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+    - job: Deploy
+      steps:
+        - download: current
+          artifact: 'app'
+
+        - task: AzureWebApp@1
+          inputs:
+            azureSubscription: $(azureServiceConnection)
+            appType: 'webAppLinux'
+            appName: $(appServiceName)
+            package: '$(Pipeline.Workspace)/app/app.zip'
+            runtimeStack: 'PYTHON|3.11'
+            startUpCommand: $(startupCommand)
+            appSettings: '-SCM_DO_BUILD_DURING_DEPLOYMENT true -WEBSITES_PORT 8000'
