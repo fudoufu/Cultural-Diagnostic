@@ -1219,10 +1219,11 @@ directorates = get_filter_options(df, "Q1")
 q9_levels    = get_filter_options(df, "Q9")
 
 # ── Top-level section tabs ────────────────────────────────────────────────────────
-sec_a, sec_b, sec_c = st.tabs([
+sec_a, sec_b, sec_c, sec_d = st.tabs([
     "Section A: Council-Wide",
     "Section B: Directorate & Service Deep Dive",
-    "Section C: Org Health Analysis (temp)",
+    "Section C: Org Health Analysis",
+    "Section D: EDI Views",
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════════
@@ -1545,31 +1546,32 @@ with sec_a:
                             "been reached."
                         )
                         log_df = pd.DataFrame(res["elim_log"])
-                        fig_elim = go.Figure(go.Scatter(
-                            x=log_df["Predictors in model"],
-                            y=log_df["Adj. R²"],
-                            mode="lines+markers",
-                            line=dict(color=PRIMARY, width=2),
-                            marker=dict(color=PRIMARY, size=8),
-                            hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
-                        ))
-                        fig_elim.update_layout(
-                            font=dict(family="Inter", color="#1A2B3C"),
-                            paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                            margin=dict(l=10, r=10, t=10, b=10),
-                            xaxis=dict(
-                                title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
-                                autorange="reversed",
-                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                            ),
-                            yaxis=dict(
-                                title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
-                                tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
-                            ),
-                            height=300,
-                        )
-                        st.plotly_chart(fig_elim, use_container_width=True,
-                                        key=f"oda_elim_{out_lbl}")
+                        if "Predictors in model" in log_df.columns:
+                            fig_elim = go.Figure(go.Scatter(
+                                x=log_df["Predictors in model"],
+                                y=log_df["Adj. R²"],
+                                mode="lines+markers",
+                                line=dict(color=PRIMARY, width=2),
+                                marker=dict(color=PRIMARY, size=8),
+                                hovertemplate="Predictors: %{x}<br>Adj. R² = %{y:.4f}<extra></extra>",
+                            ))
+                            fig_elim.update_layout(
+                                font=dict(family="Inter", color="#1A2B3C"),
+                                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                                margin=dict(l=10, r=10, t=10, b=10),
+                                xaxis=dict(
+                                    title=dict(text="Predictors in model", font=dict(color="#1A2B3C")),
+                                    autorange="reversed",
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                yaxis=dict(
+                                    title=dict(text="Adjusted R²", font=dict(color="#1A2B3C")),
+                                    tickfont=dict(color="#1A2B3C"), gridcolor="#E8EEF2",
+                                ),
+                                height=300,
+                            )
+                            st.plotly_chart(fig_elim, use_container_width=True,
+                                            key=f"oda_elim_{out_lbl}")
 
         with oda_lf_tab:
             st.caption(
@@ -4070,3 +4072,189 @@ with sec_c:
                     x_labels=[_c5_labels[i] for i in _wsort],
                     comp_override=[_c5_comp[i] for i in _wsort],
                 )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════
+# SECTION D
+# ═══════════════════════════════════════════════════════════════════════════════════
+with sec_d:
+    d1, = st.tabs(["D1: Descriptive Analysis"])
+
+    with d1:
+        d1_1, d1_2 = st.tabs([
+            "D1.1: Ways of Working",
+            "D1.2: Sentiment Outcomes",
+        ])
+
+        # ── Shared chart builder ──────────────────────────────────────────
+        def _edi_bar_chart(x_labels, overall_vals, filtered_vals, n_overall, n_filtered, y_title, chart_key):
+            """Returns a Plotly figure for EDI comparison."""
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=f"Council overall (n={n_overall:,})",
+                x=x_labels, y=overall_vals,
+                marker_color="#8DC0D4",
+                hovertemplate="<b>%{x}</b><br>Council overall: %{y:.2f}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name=f"Selected EDI group (n={n_filtered:,})",
+                x=x_labels, y=filtered_vals,
+                marker_color=PRIMARY,
+                hovertemplate="<b>%{x}</b><br>Selected group: %{y:.2f}<extra></extra>",
+            ))
+            fig.update_layout(
+                barmode="group",
+                font=dict(family="Inter", color="#1A2B3C"),
+                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                margin=dict(l=10, r=10, t=40, b=180),
+                xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
+                yaxis=dict(
+                    title=dict(text=y_title, font=dict(color="#1A2B3C", size=11)),
+                    range=[0, 5.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                            xanchor="right", x=1, font=dict(color="#1A2B3C", size=12)),
+                height=520,
+            )
+            return fig
+
+        # Pre-build all figures (needed for both display and report)
+        _n_all   = len(df.dropna(subset=WOW_PLACE_COLS, how="all"))
+        _n_filt  = len(filtered.dropna(subset=WOW_PLACE_COLS, how="all"))
+        _n_out_all  = len(df.dropna(subset=OUTCOME_COLS, how="all"))
+        _n_out_filt = len(filtered.dropna(subset=OUTCOME_COLS, how="all"))
+        _y_title = "Average Score (1 = Strongly Agree, 5 = Strongly Disagree)"
+
+        _fig_place = _edi_bar_chart(
+            WOW_THEMES,
+            [df[c].mean() for c in WOW_PLACE_COLS],
+            [filtered[c].mean() for c in WOW_PLACE_COLS],
+            _n_all, _n_filt, _y_title, "d1_1_place_fig"
+        )
+        _fig_ind = _edi_bar_chart(
+            WOW_THEMES,
+            [df[c].mean() for c in WOW_IND_COLS],
+            [filtered[c].mean() for c in WOW_IND_COLS],
+            _n_all, _n_filt, _y_title, "d1_1_ind_fig"
+        )
+        _fig_outcomes = _edi_bar_chart(
+            OUTCOME_LABELS,
+            [df[c].mean() for c in OUTCOME_COLS],
+            [filtered[c].mean() for c in OUTCOME_COLS],
+            _n_out_all, _n_out_filt, _y_title, "d1_2_fig"
+        )
+
+        # ── Report generator ─────────────────────────────────────────────
+        def _build_word_report():
+            import io
+            from docx import Document
+            from docx.shared import Inches, Pt, RGBColor
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            import plotly.io as pio
+
+            doc = Document()
+            doc.core_properties.title = "Somerset Council — EDI Views Report"
+
+            # Title
+            title = doc.add_heading("Somerset Council Cultural Diagnostic", 0)
+            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            sub = doc.add_heading("EDI Views Report — D1: Descriptive Analysis", 1)
+            sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            doc.add_paragraph()
+
+            # Active filters
+            doc.add_heading("Active EDI Filters", 2)
+            active = {k: v for k, v in filter_selections.items() if v}
+            if active:
+                for q_col, vals in active.items():
+                    label = EDI_FILTERS.get(q_col, q_col)
+                    p = doc.add_paragraph(style="List Bullet")
+                    p.add_run(f"{label}: ").bold = True
+                    p.add_run(", ".join(vals))
+            else:
+                doc.add_paragraph("No EDI filters applied — showing all respondents.")
+
+            doc.add_paragraph(f"Selected group respondents: {_n_filt:,}  |  Council total: {_n_all:,}")
+            doc.add_page_break()
+
+            def _add_chart(heading_text, fig, caption_text):
+                doc.add_heading(heading_text, 2)
+                doc.add_paragraph(caption_text)
+                img_bytes = pio.to_image(fig, format="png", width=1100, height=550, scale=2)
+                doc.add_picture(io.BytesIO(img_bytes), width=Inches(6.5))
+                doc.add_paragraph()
+
+            _add_chart(
+                "D1.1a — Ways of Working (Place): EDI Group vs Council Overall",
+                _fig_place,
+                "Each bar pair shows the average Place-level WoW score for the council overall (light blue) "
+                "and the selected EDI group (dark blue). Lower score = stronger agreement with the statement."
+            )
+            _add_chart(
+                "D1.1b — Ways of Working (Individual): EDI Group vs Council Overall",
+                _fig_ind,
+                "Each bar pair shows the average Individual-level WoW score. Lower = stronger agreement."
+            )
+            _add_chart(
+                "D1.2 — Employee Experience: EDI Group vs Council Overall",
+                _fig_outcomes,
+                "Each bar pair shows the average employee experience score for the council overall "
+                "and the selected EDI group. Lower score = stronger agreement with positive statements."
+            )
+
+            buf = io.BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            return buf.read()
+
+        # ── Report button ─────────────────────────────────────────────────
+        st.markdown("---")
+        col_btn, col_info = st.columns([1, 4])
+        with col_btn:
+            if st.button("📄 Generate Word Report", type="primary"):
+                with st.spinner("Building report…"):
+                    try:
+                        _report_bytes = _build_word_report()
+                        st.session_state["d1_report"] = _report_bytes
+                    except Exception as _e:
+                        st.error(f"Report generation failed: {_e}")
+        with col_info:
+            st.caption("Exports all three D1 charts to a Word document, labelled with the active EDI filters.")
+
+        if "d1_report" in st.session_state:
+            _active_labels = "_".join(
+                v[0].replace(" ", "")[:8]
+                for vals in filter_selections.values() if vals
+                for v in [vals]
+            ) or "all"
+            st.download_button(
+                label="⬇ Download Report (.docx)",
+                data=st.session_state["d1_report"],
+                file_name=f"EDI_Report_{_active_labels}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
+        st.markdown("---")
+
+        # ── D1.1: Ways of Working ─────────────────────────────────────────
+        with d1_1:
+            st.caption(
+                "Compares average Ways of Working scores for the selected EDI group against the overall "
+                "council average. The council overall bar uses all respondents regardless of EDI filters."
+            )
+            d1_1_place, d1_1_ind = st.tabs(["Place (P)", "Individual (I)"])
+            with d1_1_place:
+                st.markdown("#### Ways of Working (Place) — EDI Group vs Council Overall")
+                st.plotly_chart(_fig_place, use_container_width=True, key="d1_1_place_bar")
+            with d1_1_ind:
+                st.markdown("#### Ways of Working (Individual) — EDI Group vs Council Overall")
+                st.plotly_chart(_fig_ind, use_container_width=True, key="d1_1_ind_bar")
+
+        # ── D1.2: Sentiment Outcomes ──────────────────────────────────────
+        with d1_2:
+            st.caption(
+                "Compares average employee experience scores for the selected EDI group against the "
+                "overall council average."
+            )
+            st.markdown("#### Employee Experience — EDI Group vs Council Overall")
+            st.plotly_chart(_fig_outcomes, use_container_width=True, key="d1_2_bar")

@@ -7,3 +7,5 @@ scipy>=1.11.0
 scikit-learn<1.6
 factor-analyzer>=0.5.1
 semopy>=2.3.11
+kaleido==0.2.1
+python-docx>=1.1.0
