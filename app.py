@@ -3517,7 +3517,7 @@ with sec_a:
                         xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                         yaxis=dict(
                             title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
-                            range=[-0.2, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                            range=[0, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                                     font=dict(color="#1A2B3C", size=12)),
@@ -3760,357 +3760,363 @@ def _precompute_c5(df):
 
 
 with _timed("Section C render"), sec_c:
-    c1, c2, c3, c4, c5 = st.tabs([
-        "C1: Mandatory Training",
-        "C2: Sickness",
-        "C3: Turnover",
-        "C4: Procurement",
-        "C5: Survey Completion",
-    ])
-    with c1:
-        c1_1, c1_2 = st.tabs([
-            "C1.1: Employee Experience",
-            "C1.2: Ways of Working",
+    if not st.session_state.get('sec_c_loaded'):
+        st.info('Org health views not loaded yet — click below to load.')
+        if st.button('▶ Load Org Health Views', type='primary', key='load_sec_c_btn'):
+            st.session_state['sec_c_loaded'] = True
+            st.rerun()
+    else:
+        c1, c2, c3, c4, c5 = st.tabs([
+            "C1: Mandatory Training",
+            "C2: Sickness",
+            "C3: Turnover",
+            "C4: Procurement",
+            "C5: Survey Completion",
         ])
+        with c1:
+            c1_1, c1_2 = st.tabs([
+                "C1.1: Employee Experience",
+                "C1.2: Ways of Working",
+            ])
 
-        _c1_labels, _c1_ee_scores, _c1_wow_p, _c1_wow_i = _precompute_c1(filtered)
-        _c1_training = [C1_TRAINING.get(lbl) for lbl in _c1_labels]
+            _c1_labels, _c1_ee_scores, _c1_wow_p, _c1_wow_i = _precompute_c1(filtered)
+            _c1_training = [C1_TRAINING.get(lbl) for lbl in _c1_labels]
 
-        def _c1_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
-            _x = x_labels if x_labels is not None else _c1_labels
-            _comp = comp_override if comp_override is not None else _c1_training
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name=y_title, x=_x, y=y_vals,
-                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
-                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
-            ))
-            fig.add_trace(go.Bar(
-                name="Training Completion %", x=_x, y=_comp,
-                text=[f"{t}%" if t is not None else "" for t in _comp],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color="#E07070", yaxis="y2", offsetgroup=1,
-                hovertemplate="<b>%{x}</b><br>Training completion: %{y}%<extra></extra>",
-            ))
-            fig.update_layout(
-                barmode="group",
-                font=dict(family="Inter", color="#1A2B3C"),
-                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                margin=dict(l=10, r=60, t=40, b=200),
-                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
-                yaxis=dict(
-                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
-                ),
-                yaxis2=dict(
-                    title=dict(text="Training Completion (%)", font=dict(color="#C0392B", size=10)),
-                    overlaying="y", side="right", range=[0, 130],
-                    tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
-                ),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(color="#1A2B3C", size=11)),
-                height=600,
-            )
-            st.caption(caption_text)
-            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+            def _c1_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+                _x = x_labels if x_labels is not None else _c1_labels
+                _comp = comp_override if comp_override is not None else _c1_training
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name=y_title, x=_x, y=y_vals,
+                    text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                    hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+                ))
+                fig.add_trace(go.Bar(
+                    name="Training Completion %", x=_x, y=_comp,
+                    text=[f"{t}%" if t is not None else "" for t in _comp],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                    hovertemplate="<b>%{x}</b><br>Training completion: %{y}%<extra></extra>",
+                ))
+                fig.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=60, t=40, b=200),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                        range=[0, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    ),
+                    yaxis2=dict(
+                        title=dict(text="Training Completion (%)", font=dict(color="#C0392B", size=10)),
+                        overlaying="y", side="right", range=[0, 130],
+                        tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
+                    ),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                font=dict(color="#1A2B3C", size=11)),
+                    height=600,
+                )
+                st.caption(caption_text)
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
-        with c1_1:
-            st.markdown("#### Employee Experience vs Training Completion — by Service")
-            _c1_dual_chart(
-                _c1_ee_scores,
-                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
-                "c1_1_bar",
-                "Blue bars = average employee experience score across all 15 outcome questions (left axis, higher = more positive). Red bars = mandatory training completion rate (right axis).",
-            )
-
-        with c1_2:
-            st.markdown("#### Ways of Working vs Training Completion — by Service")
-            for _wi, _wt in enumerate(WOW_THEMES):
-                _wc = WOW_PLACE_COLS[_wi]
-                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
-                st.markdown(f"#### {_wt}")
-                if _ws:
-                    st.caption(f'"{_ws}"')
-                _wv = _c1_wow_p[_wc]
-                _wsort = sorted(range(len(_c1_labels)), key=lambda i: _wv[i])
+            with c1_1:
+                st.markdown("#### Employee Experience vs Training Completion — by Service")
                 _c1_dual_chart(
-                    [_wv[i] for i in _wsort],
-                    f"{_wt} (Place) — Avg Score",
-                    f"c1_2_bar_{_wi}",
-                    f"Blue = average score for '{_wt}' (Place). Red = mandatory training completion rate.",
-                    x_labels=[_c1_labels[i] for i in _wsort],
-                    comp_override=[_c1_training[i] for i in _wsort],
+                    _c1_ee_scores,
+                    "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                    "c1_1_bar",
+                    "Blue bars = average employee experience score across all 15 outcome questions (left axis, higher = more positive). Red bars = mandatory training completion rate (right axis).",
                 )
-    with c2:
-        c2_1, c2_2 = st.tabs(["C2.1: Employee Experience", "C2.2: Ways of Working"])
 
-        _c23_labels, _c23_ee_scores, _c23_wow_p, _c23_wow_i = _precompute_c23(filtered)
-        _c2_comp = [C2_SICKNESS.get(lbl) for lbl in _c23_labels]
+            with c1_2:
+                st.markdown("#### Ways of Working vs Training Completion — by Service")
+                for _wi, _wt in enumerate(WOW_THEMES):
+                    _wc = WOW_PLACE_COLS[_wi]
+                    _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                    st.markdown(f"#### {_wt}")
+                    if _ws:
+                        st.caption(f'"{_ws}"')
+                    _wv = _c1_wow_p[_wc]
+                    _wsort = sorted(range(len(_c1_labels)), key=lambda i: _wv[i])
+                    _c1_dual_chart(
+                        [_wv[i] for i in _wsort],
+                        f"{_wt} (Place) — Avg Score",
+                        f"c1_2_bar_{_wi}",
+                        f"Blue = average score for '{_wt}' (Place). Red = mandatory training completion rate.",
+                        x_labels=[_c1_labels[i] for i in _wsort],
+                        comp_override=[_c1_training[i] for i in _wsort],
+                    )
+        with c2:
+            c2_1, c2_2 = st.tabs(["C2.1: Employee Experience", "C2.2: Ways of Working"])
 
-        def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text, x_labels=None):
-            _x = x_labels if x_labels is not None else _c23_labels
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name=y_title, x=_x, y=y_vals,
-                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
-                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
-            ))
-            fig.add_trace(go.Bar(
-                name=comp_title, x=_x, y=comp_vals,
-                text=[f"{v}{comp_suffix}" if v is not None else "" for v in comp_vals],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color=comp_color, yaxis="y2", offsetgroup=1,
-                hovertemplate="<b>%{x}</b><br>" + comp_title + ": %{y}" + comp_suffix + "<extra></extra>",
-            ))
-            fig.update_layout(
-                barmode="group",
-                font=dict(family="Inter", color="#1A2B3C"),
-                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                margin=dict(l=10, r=60, t=40, b=200),
-                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
-                yaxis=dict(
-                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=y_range, tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
-                ),
-                yaxis2=dict(
-                    title=dict(text=comp_title, font=dict(color=comp_color, size=10)),
-                    overlaying="y", side="right", range=comp_range,
-                    tickfont=dict(size=10, color=comp_color), showgrid=False,
-                    ticksuffix=comp_suffix,
-                ),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(color="#1A2B3C", size=11)),
-                height=600,
-            )
-            st.caption(caption_text)
-            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+            _c23_labels, _c23_ee_scores, _c23_wow_p, _c23_wow_i = _precompute_c23(filtered)
+            _c2_comp = [C2_SICKNESS.get(lbl) for lbl in _c23_labels]
 
-        with c2_1:
-            st.markdown("#### Employee Experience vs Sickness Absence — by Service")
-            _c23_dual_chart(
-                _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
-                _c2_comp, "Avg Sickness Days", " days", "#E07070",
-                [-0.2, 4.5], [0, 10],
-                "c2_1_bar",
-                "Blue = average EE score (left axis, higher = more positive). Red = average sickness absence days (right axis).",
-            )
+            def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text, x_labels=None):
+                _x = x_labels if x_labels is not None else _c23_labels
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name=y_title, x=_x, y=y_vals,
+                    text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                    hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+                ))
+                fig.add_trace(go.Bar(
+                    name=comp_title, x=_x, y=comp_vals,
+                    text=[f"{v}{comp_suffix}" if v is not None else "" for v in comp_vals],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color=comp_color, yaxis="y2", offsetgroup=1,
+                    hovertemplate="<b>%{x}</b><br>" + comp_title + ": %{y}" + comp_suffix + "<extra></extra>",
+                ))
+                fig.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=60, t=40, b=200),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                        range=y_range, tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    ),
+                    yaxis2=dict(
+                        title=dict(text=comp_title, font=dict(color=comp_color, size=10)),
+                        overlaying="y", side="right", range=comp_range,
+                        tickfont=dict(size=10, color=comp_color), showgrid=False,
+                        ticksuffix=comp_suffix,
+                    ),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                font=dict(color="#1A2B3C", size=11)),
+                    height=600,
+                )
+                st.caption(caption_text)
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
-        with c2_2:
-            st.markdown("#### Ways of Working vs Sickness Absence — by Service")
-            for _wi, _wt in enumerate(WOW_THEMES):
-                _wc = WOW_PLACE_COLS[_wi]
-                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
-                st.markdown(f"#### {_wt}")
-                if _ws:
-                    st.caption(f'"{_ws}"')
-                _wv = _c23_wow_p[_wc]
-                _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
+            with c2_1:
+                st.markdown("#### Employee Experience vs Sickness Absence — by Service")
                 _c23_dual_chart(
-                    [_wv[i] for i in _wsort],
-                    f"{_wt} (Place) — Avg Score",
-                    [_c2_comp[i] for i in _wsort], "Avg Sickness Days", " days", "#E07070",
+                    _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                    _c2_comp, "Avg Sickness Days", " days", "#E07070",
                     [-0.2, 4.5], [0, 10],
-                    f"c2_2_bar_{_wi}",
-                    f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
-                    x_labels=[_c23_labels[i] for i in _wsort],
+                    "c2_1_bar",
+                    "Blue = average EE score (left axis, higher = more positive). Red = average sickness absence days (right axis).",
                 )
-    with c3:
-        c3_1, c3_2 = st.tabs(["C3.1: Employee Experience", "C3.2: Ways of Working"])
 
-        C3_TURNOVER = {
-            "Legal (RST)": 1.20, "Housing (ASH)": 0.67, "Electoral Services": None,
-            "HRA Property (CPE)": 0.72, "Education (CFE)": 1.92, "Infra & Transport (CPE)": 0.68,
-            "Children & Families (CFE)": 0.81, "Adults Operations (ASH)": 0.93,
-            "CEO Office & Directors": 1.21, "Property (CPE)": 0.76,
-            "Public Health (RST)": 0.63, "Reg & Ops (CPE)": 0.99,
-            "Adults Commissioning": None, "Democratic & Gov (RST)": 1.52,
-            "EcDev (CPE)": 1.04, "HR&OD (RST)": 0.36, "Planning (CPE)": 0.46,
-            "Finance & Procurement": 0.46, "Partnership Loc & Culture": 0.51,
-            "Commissioning & Perf (CFE)": 0.55, "ICT (RST)": 0.41,
-            "Strategy & Comms (RST)": 0.35,
-        }
+            with c2_2:
+                st.markdown("#### Ways of Working vs Sickness Absence — by Service")
+                for _wi, _wt in enumerate(WOW_THEMES):
+                    _wc = WOW_PLACE_COLS[_wi]
+                    _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                    st.markdown(f"#### {_wt}")
+                    if _ws:
+                        st.caption(f'"{_ws}"')
+                    _wv = _c23_wow_p[_wc]
+                    _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
+                    _c23_dual_chart(
+                        [_wv[i] for i in _wsort],
+                        f"{_wt} (Place) — Avg Score",
+                        [_c2_comp[i] for i in _wsort], "Avg Sickness Days", " days", "#E07070",
+                        [-0.2, 4.5], [0, 10],
+                        f"c2_2_bar_{_wi}",
+                        f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
+                        x_labels=[_c23_labels[i] for i in _wsort],
+                    )
+        with c3:
+            c3_1, c3_2 = st.tabs(["C3.1: Employee Experience", "C3.2: Ways of Working"])
 
-        _c3_comp = [C3_TURNOVER.get(lbl) for lbl in _c23_labels]
+            C3_TURNOVER = {
+                "Legal (RST)": 1.20, "Housing (ASH)": 0.67, "Electoral Services": None,
+                "HRA Property (CPE)": 0.72, "Education (CFE)": 1.92, "Infra & Transport (CPE)": 0.68,
+                "Children & Families (CFE)": 0.81, "Adults Operations (ASH)": 0.93,
+                "CEO Office & Directors": 1.21, "Property (CPE)": 0.76,
+                "Public Health (RST)": 0.63, "Reg & Ops (CPE)": 0.99,
+                "Adults Commissioning": None, "Democratic & Gov (RST)": 1.52,
+                "EcDev (CPE)": 1.04, "HR&OD (RST)": 0.36, "Planning (CPE)": 0.46,
+                "Finance & Procurement": 0.46, "Partnership Loc & Culture": 0.51,
+                "Commissioning & Perf (CFE)": 0.55, "ICT (RST)": 0.41,
+                "Strategy & Comms (RST)": 0.35,
+            }
 
-        with c3_1:
-            st.markdown("#### Employee Experience vs Turnover — by Service")
-            _c23_dual_chart(
-                _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
-                _c3_comp, "Turnover (%)", "%", "#E07070",
-                [-0.2, 4.5], [0, 3],
-                "c3_1_bar",
-                "Blue = average EE score (left axis, higher = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
-            )
+            _c3_comp = [C3_TURNOVER.get(lbl) for lbl in _c23_labels]
 
-        with c3_2:
-            st.markdown("#### Ways of Working vs Turnover — by Service")
-            for _wi, _wt in enumerate(WOW_THEMES):
-                _wc = WOW_PLACE_COLS[_wi]
-                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
-                st.markdown(f"#### {_wt}")
-                if _ws:
-                    st.caption(f'"{_ws}"')
-                _wv = _c23_wow_p[_wc]
-                _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
+            with c3_1:
+                st.markdown("#### Employee Experience vs Turnover — by Service")
                 _c23_dual_chart(
-                    [_wv[i] for i in _wsort],
-                    f"{_wt} (Place) — Avg Score",
-                    [_c3_comp[i] for i in _wsort], "Turnover (%)", "%", "#E07070",
+                    _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                    _c3_comp, "Turnover (%)", "%", "#E07070",
                     [-0.2, 4.5], [0, 3],
-                    f"c3_2_bar_{_wi}",
-                    f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
-                    x_labels=[_c23_labels[i] for i in _wsort],
+                    "c3_1_bar",
+                    "Blue = average EE score (left axis, higher = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
                 )
-    with c4:
-        c4_1, c4_2 = st.tabs(["C4.1: Employee Experience", "C4.2: Ways of Working"])
 
-        _c4_labels, _c4_ee_scores, _c4_wow_p, _c4_wow_i = _precompute_c4(filtered)
-        _c4_comp = [C4_PROCUREMENT.get(lbl) for lbl in _c4_labels]
+            with c3_2:
+                st.markdown("#### Ways of Working vs Turnover — by Service")
+                for _wi, _wt in enumerate(WOW_THEMES):
+                    _wc = WOW_PLACE_COLS[_wi]
+                    _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                    st.markdown(f"#### {_wt}")
+                    if _ws:
+                        st.caption(f'"{_ws}"')
+                    _wv = _c23_wow_p[_wc]
+                    _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
+                    _c23_dual_chart(
+                        [_wv[i] for i in _wsort],
+                        f"{_wt} (Place) — Avg Score",
+                        [_c3_comp[i] for i in _wsort], "Turnover (%)", "%", "#E07070",
+                        [-0.2, 4.5], [0, 3],
+                        f"c3_2_bar_{_wi}",
+                        f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
+                        x_labels=[_c23_labels[i] for i in _wsort],
+                    )
+        with c4:
+            c4_1, c4_2 = st.tabs(["C4.1: Employee Experience", "C4.2: Ways of Working"])
 
-        def _c4_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
-            _x = x_labels if x_labels is not None else _c4_labels
-            _comp = comp_override if comp_override is not None else _c4_comp
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name=y_title, x=_x, y=y_vals,
-                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
-                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
-            ))
-            fig.add_trace(go.Bar(
-                name="No. of Procurement Breaches", x=_x, y=_comp,
-                text=[str(v) if v is not None else "" for v in _comp],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color="#E07070", yaxis="y2", offsetgroup=1,
-                hovertemplate="<b>%{x}</b><br>Procurement breaches: %{y}<extra></extra>",
-            ))
-            fig.update_layout(
-                barmode="group",
-                font=dict(family="Inter", color="#1A2B3C"),
-                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                margin=dict(l=10, r=60, t=40, b=200),
-                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
-                yaxis=dict(
-                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
-                ),
-                yaxis2=dict(
-                    title=dict(text="No. of Procurement Breaches", font=dict(color="#C0392B", size=10)),
-                    overlaying="y", side="right", range=[0, 30],
-                    tickfont=dict(size=10, color="#C0392B"), showgrid=False,
-                ),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(color="#1A2B3C", size=11)),
-                height=600,
-            )
-            st.caption(caption_text)
-            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+            _c4_labels, _c4_ee_scores, _c4_wow_p, _c4_wow_i = _precompute_c4(filtered)
+            _c4_comp = [C4_PROCUREMENT.get(lbl) for lbl in _c4_labels]
 
-        with c4_1:
-            st.markdown("#### Employee Experience vs Procurement Breaches — by Service")
-            _c4_dual_chart(
-                _c4_ee_scores,
-                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
-                "c4_1_bar",
-                "Blue = average EE score (left axis, higher = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
-            )
+            def _c4_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+                _x = x_labels if x_labels is not None else _c4_labels
+                _comp = comp_override if comp_override is not None else _c4_comp
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name=y_title, x=_x, y=y_vals,
+                    text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                    hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+                ))
+                fig.add_trace(go.Bar(
+                    name="No. of Procurement Breaches", x=_x, y=_comp,
+                    text=[str(v) if v is not None else "" for v in _comp],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                    hovertemplate="<b>%{x}</b><br>Procurement breaches: %{y}<extra></extra>",
+                ))
+                fig.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=60, t=40, b=200),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                        range=[0, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    ),
+                    yaxis2=dict(
+                        title=dict(text="No. of Procurement Breaches", font=dict(color="#C0392B", size=10)),
+                        overlaying="y", side="right", range=[0, 30],
+                        tickfont=dict(size=10, color="#C0392B"), showgrid=False,
+                    ),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                font=dict(color="#1A2B3C", size=11)),
+                    height=600,
+                )
+                st.caption(caption_text)
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
-        with c4_2:
-            st.markdown("#### Ways of Working vs Procurement Breaches — by Service")
-            for _wi, _wt in enumerate(WOW_THEMES):
-                _wc = WOW_PLACE_COLS[_wi]
-                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
-                st.markdown(f"#### {_wt}")
-                if _ws:
-                    st.caption(f'"{_ws}"')
-                _wv = _c4_wow_p[_wc]
-                _wsort = sorted(range(len(_c4_labels)), key=lambda i: _wv[i])
+            with c4_1:
+                st.markdown("#### Employee Experience vs Procurement Breaches — by Service")
                 _c4_dual_chart(
-                    [_wv[i] for i in _wsort],
-                    f"{_wt} (Place) — Avg Score",
-                    f"c4_2_bar_{_wi}",
-                    f"Blue = average score for '{_wt}' (Place). Red = procurement breaches.",
-                    x_labels=[_c4_labels[i] for i in _wsort],
-                    comp_override=[_c4_comp[i] for i in _wsort],
+                    _c4_ee_scores,
+                    "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                    "c4_1_bar",
+                    "Blue = average EE score (left axis, higher = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
                 )
-    with c5:
-        c5_1, c5_2 = st.tabs(["C5.1: Employee Experience", "C5.2: Ways of Working"])
 
-        _c5_labels, _c5_ee_scores, _c5_wow_p, _c5_wow_i = _precompute_c5(filtered)
-        _c5_comp = [C5_COMPLETION.get(lbl) for lbl in _c5_labels]
+            with c4_2:
+                st.markdown("#### Ways of Working vs Procurement Breaches — by Service")
+                for _wi, _wt in enumerate(WOW_THEMES):
+                    _wc = WOW_PLACE_COLS[_wi]
+                    _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                    st.markdown(f"#### {_wt}")
+                    if _ws:
+                        st.caption(f'"{_ws}"')
+                    _wv = _c4_wow_p[_wc]
+                    _wsort = sorted(range(len(_c4_labels)), key=lambda i: _wv[i])
+                    _c4_dual_chart(
+                        [_wv[i] for i in _wsort],
+                        f"{_wt} (Place) — Avg Score",
+                        f"c4_2_bar_{_wi}",
+                        f"Blue = average score for '{_wt}' (Place). Red = procurement breaches.",
+                        x_labels=[_c4_labels[i] for i in _wsort],
+                        comp_override=[_c4_comp[i] for i in _wsort],
+                    )
+        with c5:
+            c5_1, c5_2 = st.tabs(["C5.1: Employee Experience", "C5.2: Ways of Working"])
 
-        def _c5_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
-            _x = x_labels if x_labels is not None else _c5_labels
-            _comp = comp_override if comp_override is not None else _c5_comp
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name=y_title, x=_x, y=y_vals,
-                text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
-                hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
-            ))
-            fig.add_trace(go.Bar(
-                name="Survey Completion %", x=_x, y=_comp,
-                text=[f"{v:.1f}%" if v is not None else "" for v in _comp],
-                textposition="outside", textfont=dict(color="#1A2B3C", size=8),
-                marker_color="#E07070", yaxis="y2", offsetgroup=1,
-                hovertemplate="<b>%{x}</b><br>Survey completion: %{y:.1f}%<extra></extra>",
-            ))
-            fig.update_layout(
-                barmode="group",
-                font=dict(family="Inter", color="#1A2B3C"),
-                paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
-                margin=dict(l=10, r=60, t=40, b=200),
-                xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
-                yaxis=dict(
-                    title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
-                ),
-                yaxis2=dict(
-                    title=dict(text="Survey Completion (%)", font=dict(color="#C0392B", size=10)),
-                    overlaying="y", side="right", range=[0, 170],
-                    tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
-                ),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                            font=dict(color="#1A2B3C", size=11)),
-                height=600,
-            )
-            st.caption(caption_text)
-            st.plotly_chart(fig, use_container_width=True, key=chart_key)
+            _c5_labels, _c5_ee_scores, _c5_wow_p, _c5_wow_i = _precompute_c5(filtered)
+            _c5_comp = [C5_COMPLETION.get(lbl) for lbl in _c5_labels]
 
-        with c5_1:
-            st.markdown("#### Employee Experience vs Survey Completion — by Service")
-            _c5_dual_chart(
-                _c5_ee_scores,
-                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
-                "c5_1_bar",
-                "Blue = average EE score (left axis, higher = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
-            )
+            def _c5_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
+                _x = x_labels if x_labels is not None else _c5_labels
+                _comp = comp_override if comp_override is not None else _c5_comp
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name=y_title, x=_x, y=y_vals,
+                    text=[f"{v:.2f}" if v is not None else "" for v in y_vals],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color=PRIMARY, yaxis="y1", offsetgroup=0,
+                    hovertemplate="<b>%{x}</b><br>" + y_title + ": %{y:.2f}<extra></extra>",
+                ))
+                fig.add_trace(go.Bar(
+                    name="Survey Completion %", x=_x, y=_comp,
+                    text=[f"{v:.1f}%" if v is not None else "" for v in _comp],
+                    textposition="outside", textfont=dict(color="#1A2B3C", size=8),
+                    marker_color="#E07070", yaxis="y2", offsetgroup=1,
+                    hovertemplate="<b>%{x}</b><br>Survey completion: %{y:.1f}%<extra></extra>",
+                ))
+                fig.update_layout(
+                    barmode="group",
+                    font=dict(family="Inter", color="#1A2B3C"),
+                    paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                    margin=dict(l=10, r=60, t=40, b=200),
+                    xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
+                    yaxis=dict(
+                        title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
+                        range=[0, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    ),
+                    yaxis2=dict(
+                        title=dict(text="Survey Completion (%)", font=dict(color="#C0392B", size=10)),
+                        overlaying="y", side="right", range=[0, 170],
+                        tickfont=dict(size=10, color="#C0392B"), showgrid=False, ticksuffix="%",
+                    ),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                font=dict(color="#1A2B3C", size=11)),
+                    height=600,
+                )
+                st.caption(caption_text)
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
-        with c5_2:
-            st.markdown("#### Ways of Working vs Survey Completion — by Service")
-            for _wi, _wt in enumerate(WOW_THEMES):
-                _wc = WOW_PLACE_COLS[_wi]
-                _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
-                st.markdown(f"#### {_wt}")
-                if _ws:
-                    st.caption(f'"{_ws}"')
-                _wv = _c5_wow_p[_wc]
-                _wsort = sorted(range(len(_c5_labels)), key=lambda i: _wv[i])
+            with c5_1:
+                st.markdown("#### Employee Experience vs Survey Completion — by Service")
                 _c5_dual_chart(
-                    [_wv[i] for i in _wsort],
-                    f"{_wt} (Place) — Avg Score",
-                    f"c5_2_bar_{_wi}",
-                    f"Blue = average score for '{_wt}' (Place). Red = survey completion rate.",
-                    x_labels=[_c5_labels[i] for i in _wsort],
-                    comp_override=[_c5_comp[i] for i in _wsort],
+                    _c5_ee_scores,
+                    "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                    "c5_1_bar",
+                    "Blue = average EE score (left axis, higher = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
                 )
+
+            with c5_2:
+                st.markdown("#### Ways of Working vs Survey Completion — by Service")
+                for _wi, _wt in enumerate(WOW_THEMES):
+                    _wc = WOW_PLACE_COLS[_wi]
+                    _ws = WOW_PLACE_STATEMENTS.get(_wt, "")
+                    st.markdown(f"#### {_wt}")
+                    if _ws:
+                        st.caption(f'"{_ws}"')
+                    _wv = _c5_wow_p[_wc]
+                    _wsort = sorted(range(len(_c5_labels)), key=lambda i: _wv[i])
+                    _c5_dual_chart(
+                        [_wv[i] for i in _wsort],
+                        f"{_wt} (Place) — Avg Score",
+                        f"c5_2_bar_{_wi}",
+                        f"Blue = average score for '{_wt}' (Place). Red = survey completion rate.",
+                        x_labels=[_c5_labels[i] for i in _wsort],
+                        comp_override=[_c5_comp[i] for i in _wsort],
+                    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════
@@ -4158,7 +4164,7 @@ with _timed("Section D render"), sec_d:
                     xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                     yaxis=dict(
                         title=dict(text=y_title, font=dict(color="#1A2B3C", size=11)),
-                        range=[-0.2, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                        range=[0, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
                     ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02,
                                 xanchor="right", x=1, font=dict(color="#1A2B3C", size=12)),
