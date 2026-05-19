@@ -451,6 +451,7 @@ def apply_filters(df: pd.DataFrame, selections: dict) -> pd.DataFrame:
     return df[mask]
 
 
+@st.cache_data(show_spinner=False)
 def spearman_matrix(df: pd.DataFrame, x_cols: list, y_cols: list) -> pd.DataFrame:
     """Rectangular Spearman correlation matrix (pairwise complete obs)."""
     all_cols = list(dict.fromkeys(x_cols + y_cols))
@@ -477,6 +478,7 @@ def get_filter_options(df: pd.DataFrame, col: str) -> list:
 
 
 # ── Visualisations ────────────────────────────────────────────────────────────────
+@st.cache_data(show_spinner=False)
 def make_heatmap(matrix: pd.DataFrame, y_labels: list, x_labels: list,
                  y_statements: dict = None, x_statements: dict = None) -> go.Figure:
     z = matrix.values.astype(float)
@@ -3537,6 +3539,221 @@ with sec_a:
                             key="b5_bar")
 
 
+# ── Section C service maps (module-level so @st.cache_data can reference them) ────
+C1_SERVICE_MAP = [
+    ("AdultsCommg",                   lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+    ("AdltOps HIS & IC",              lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "CHC, HIS and Intermediate Care")]),
+    ("AdltOps Nbhd MH & LD",          lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"].isin(["Neighbourhoods", "Mental Health", "Learning Disabilities"]))]),
+    ("AdltOps OT",                    lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Occupational Therapy: Staff Dev, SILC and DFG")]),
+    ("AdltOps Social Work",           lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Social Work: Staff Dev, Safeguarding, MCA & DoLS")]),
+    ("Adlts Housing General Fund",    lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+    ("CEO-ExecDir-ServDir",           lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Exec and Service Directors")]),
+    ("CEO & Elections",               lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+    ("CEO-Elections",                 lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+    ("C&F CLA Leaving Care & CWD",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "CLA Leaving Care and CWD")]),
+    ("C&F Fostering & Permanence",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Fostering and Kinship")]),
+    ("C&F Help & Protect",            lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Help and Protect")]),
+    ("C&F Prevention & YJ",           lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Prevention and Youth Justice")]),
+    ("C&F Public Health Nursing",     lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Public Health Nursing")]),
+    ("C&F QA & Partnerships",         lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "QA and Partnerships")]),
+    ("CFE-C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+    ("Chld Commissioning & Perf",     lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+    ("Chld Comm BusinessOps",         lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["svc_name"] == "Business Operations")]),
+    ("Educ Curriculum & Training",    lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Curriculum and Training")]),
+    ("Educ EP & SEND",                lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "SEND Assessment and Review and Principal Educational Psychologist")]),
+    ("Educ Leadership",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Leadership")]),
+    ("Educ Operations",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Operations")]),
+    ("Educ Places",                   lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Places")]),
+    ("Educ Virtual School",           lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Virtual School")]),
+    ("Finance & Procurement",         lambda d: d[d["Q1"] == "Finance and Procurement"]),
+    ("Revs & Bens",                   lambda d: d[d["svc_name"] == "Revenues and Benefits"]),
+    ("EcDev Skills & Climate",        lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+    ("HRA Housing",                   lambda d: d[d["svc_name"] == "HRA Property"]),
+    ("Infr&Trans Highways",           lambda d: d[(d["svc_name"] == "Highways") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Infr&Trans Infra Programmes",   lambda d: d[d["svc_name"] == "Infrastructure Programmes"]),
+    ("Infr&Trans Traffic RS&Parking", lambda d: d[d["svc_name"] == "Traffic Management RS and Parking"]),
+    ("Infr&Trans Transportation",     lambda d: d[d["svc_name"] == "Transportation"]),
+    ("Partnership Loc & Culture",     lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+    ("Planning",                      lambda d: d[d["svc_group"] == "Planning"]),
+    ("Property",                      lambda d: d[d["svc_name"] == "Property"]),
+    ("Reg&Ops Customer Ops",          lambda d: d[d["svc_name"] == "Customer Operations"]),
+    ("Reg&Ops Lifeline & OOH",        lambda d: d[d["svc_name"] == "Lifeline & OOH"]),
+    ("Reg&Ops Operations",            lambda d: d[d["svc_name"] == "Operations"]),
+    ("Reg&Ops Regulatory Services",   lambda d: d[d["svc_name"] == "Regulatory Services"]),
+    ("Regs&Ops Waste & Scientific",   lambda d: d[d["svc_name"].isin(["Waste", "Scientific Services"])]),
+    ("Democratic Services & Gov",     lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+    ("ICT",                           lambda d: d[d["svc_group"] == "ICT"]),
+    ("HR&OD",                         lambda d: d[d["svc_group"] == "HR and OD"]),
+    ("Legal",                         lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+    ("Public Health",                 lambda d: d[d["svc_group"] == "Public Health"]),
+    ("Strategy & Performance",        lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+]
+C1_TRAINING = {
+    "AdultsCommg": 93, "AdltOps HIS & IC": 82, "AdltOps Nbhd MH & LD": 87,
+    "AdltOps OT": 89, "AdltOps Social Work": 82, "Adlts Housing General Fund": 84,
+    "CEO-ExecDir-ServDir": 87, "CEO & Elections": 100, "CEO-Elections": 91,
+    "C&F CLA Leaving Care & CWD": 78, "C&F Fostering & Permanence": 83,
+    "C&F Help & Protect": 71, "C&F Prevention & YJ": 93,
+    "C&F Public Health Nursing": 96, "C&F QA & Partnerships": 83,
+    "CFE-C&F": 52, "Chld Commissioning & Perf": 89, "Chld Comm BusinessOps": 99,
+    "Educ Curriculum & Training": 82, "Educ EP & SEND": 80,
+    "Educ Leadership": 96, "Educ Operations": 90, "Educ Places": 95,
+    "Educ Virtual School": 90, "Finance & Procurement": 97, "Revs & Bens": 93,
+    "EcDev Skills & Climate": 82, "HRA Housing": 96, "Infr&Trans Highways": 83,
+    "Infr&Trans Infra Programmes": 90, "Infr&Trans Traffic RS&Parking": 94,
+    "Infr&Trans Transportation": 37, "Partnership Loc & Culture": 92,
+    "Planning": 75, "Property": 94, "Reg&Ops Customer Ops": 99,
+    "Reg&Ops Lifeline & OOH": 96, "Reg&Ops Operations": 92,
+    "Reg&Ops Regulatory Services": 88, "Regs&Ops Waste & Scientific": 98,
+    "Democratic Services & Gov": 74, "ICT": 94, "HR&OD": 97,
+    "Legal": 69, "Public Health": 99, "Strategy & Performance": 95,
+}
+C23_SERVICE_MAP = [
+    ("Legal (RST)",               lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+    ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+    ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+    ("HRA Property (CPE)",        lambda d: d[d["svc_name"] == "HRA Property"]),
+    ("Education (CFE)",           lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
+    ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Children & Families (CFE)", lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+    ("Adults Operations (ASH)",   lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+    ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+    ("Property (CPE)",            lambda d: d[d["svc_name"] == "Property"]),
+    ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
+    ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+    ("Democratic & Gov (RST)",    lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+    ("EcDev (CPE)",               lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+    ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
+    ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
+    ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
+    ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+    ("Commissioning & Perf (CFE)",lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+    ("ICT (RST)",                 lambda d: d[d["svc_group"] == "ICT"]),
+    ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+]
+C2_SICKNESS = {
+    "Legal (RST)": 7.77, "Housing (ASH)": 6.83, "Electoral Services": 6.41,
+    "HRA Property (CPE)": 6.08, "Education (CFE)": 5.98, "Infra & Transport (CPE)": 5.75,
+    "Children & Families (CFE)": 5.62, "Adults Operations (ASH)": 5.21,
+    "CEO Office & Directors": 4.98, "Property (CPE)": 4.92,
+    "Public Health (RST)": 4.90, "Reg & Ops (CPE)": 4.89,
+    "Adults Commissioning": 4.79, "Democratic & Gov (RST)": 4.72,
+    "EcDev (CPE)": 4.65, "HR&OD (RST)": 4.45, "Planning (CPE)": 4.44,
+    "Finance & Procurement": 4.39, "Partnership Loc & Culture": 4.31,
+    "Commissioning & Perf (CFE)": 4.31, "ICT (RST)": 4.21,
+    "Strategy & Comms (RST)": 3.64,
+}
+C3_TURNOVER = {
+    "Legal (RST)": 1.20, "Housing (ASH)": 0.67, "Electoral Services": None,
+    "HRA Property (CPE)": 0.72, "Education (CFE)": 1.92, "Infra & Transport (CPE)": 0.68,
+    "Children & Families (CFE)": 0.81, "Adults Operations (ASH)": 0.93,
+    "CEO Office & Directors": 1.21, "Property (CPE)": 0.76,
+    "Public Health (RST)": 0.63, "Reg & Ops (CPE)": 0.99,
+    "Adults Commissioning": None, "Democratic & Gov (RST)": 1.52,
+    "EcDev (CPE)": 1.04, "HR&OD (RST)": 0.36, "Planning (CPE)": 0.46,
+    "Finance & Procurement": 0.46, "Partnership Loc & Culture": 0.51,
+    "Commissioning & Perf (CFE)": 0.55, "ICT (RST)": 0.41,
+    "Strategy & Comms (RST)": 0.35,
+}
+C4_SERVICE_MAP = [
+    ("C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+    ("Adults Services (ASH)",     lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+    ("HRA (ASH)",                 lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+    ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+    ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
+    ("Climate (CPE)",             lambda d: d[(d["svc_name"] == "Climate and Natural Environment")]),
+    ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Partnership & Loc (CPE)",   lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+    ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+    ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
+    ("Digital Services (RST)",    lambda d: d[d["svc_group"] == "ICT"]),
+    ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+    ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
+    ("Procurement (CFO)",         lambda d: d[d["svc_name"] == "Procurement"]),
+    ("Finance (CFO)",             lambda d: d[(d["Q1"] == "Finance and Procurement") & (d["svc_name"] != "Procurement")]),
+    ("CEO Office",                lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+]
+C4_PROCUREMENT = {
+    "C&F": 6, "Adults Services (ASH)": 20, "HRA (ASH)": 0, "Housing (ASH)": 23,
+    "Infra & Transport (CPE)": 11, "Planning (CPE)": 8, "Climate (CPE)": 6,
+    "Reg & Ops (CPE)": 5, "Partnership & Loc (CPE)": 0, "EcDev Skills & Climate": 3,
+    "HR&OD (RST)": 0, "Digital Services (RST)": 4, "Strategy & Comms (RST)": 0,
+    "Public Health (RST)": 0, "Procurement (CFO)": 0, "Finance (CFO)": 1,
+    "CEO Office": 0,
+}
+C5_SERVICE_MAP = [
+    ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
+    ("Adults Operations",         lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
+    ("Housing",                   lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
+    ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
+    ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
+    ("Children & Families",       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
+    ("Commissioning & Perf",      lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
+    ("Education",                 lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
+    ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
+    ("HRA & Property",            lambda d: d[d["svc_name"].isin(["HRA Property", "Property"])]),
+    ("Infra & Transport",         lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
+    ("Planning",                  lambda d: d[d["svc_group"] == "Planning"]),
+    ("Reg & Ops",                 lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
+    ("Democratic & Gov",          lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
+    ("ICT Services",              lambda d: d[d["svc_group"] == "ICT"]),
+    ("HR&OD",                     lambda d: d[d["svc_group"] == "HR and OD"]),
+    ("Legal",                     lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
+    ("Public Health",             lambda d: d[d["svc_group"] == "Public Health"]),
+    ("Strategy & Comms",          lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
+    ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
+]
+C5_COMPLETION = {
+    "Adults Commissioning": 91.4, "Adults Operations": 34.1, "Housing": 45.8,
+    "Electoral Services": 33.3, "CEO Office & Directors": 155.0,
+    "Children & Families": 22.2, "Commissioning & Perf": 32.9,
+    "Education": 36.7, "EcDev Skills & Climate": 42.4, "HRA & Property": 22.9,
+    "Infra & Transport": 43.5, "Partnership Loc & Culture": 52.1,
+    "Planning": 51.9, "Reg & Ops": 34.7, "Democratic & Gov": 59.1,
+    "ICT Services": 38.4, "HR&OD": 72.0, "Legal": 47.1,
+    "Public Health": 47.0, "Strategy & Comms": 76.0,
+    "Finance & Procurement": 43.9,
+}
+
+
+def _precompute_service(df, service_map):
+    """Apply service map filters, sort by EE score, return aggregated values."""
+    rows = [(lbl, fn(df)) for lbl, fn in service_map]
+    rows = [(lbl, sub) for lbl, sub in rows if len(sub) > 0]
+    labels = [r[0] for r in rows]
+    ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in rows]
+    idx = sorted(range(len(labels)), key=lambda i: ee_pre[i])
+    rows = [rows[i] for i in idx]
+    labels = [labels[i] for i in idx]
+    ee_scores = [ee_pre[i] for i in idx]
+    wow_p = {c: [sub[c].mean() for _, sub in rows] for c in WOW_PLACE_COLS}
+    wow_i = {c: [sub[c].mean() for _, sub in rows] for c in WOW_IND_COLS}
+    return labels, ee_scores, wow_p, wow_i
+
+
+@st.cache_data(show_spinner=False)
+def _precompute_c1(df):
+    return _precompute_service(df, C1_SERVICE_MAP)
+
+
+@st.cache_data(show_spinner=False)
+def _precompute_c23(df):
+    return _precompute_service(df, C23_SERVICE_MAP)
+
+
+@st.cache_data(show_spinner=False)
+def _precompute_c4(df):
+    return _precompute_service(df, C4_SERVICE_MAP)
+
+
+@st.cache_data(show_spinner=False)
+def _precompute_c5(df):
+    return _precompute_service(df, C5_SERVICE_MAP)
+
+
 with _timed("Section C render"), sec_c:
     c1, c2, c3, c4, c5 = st.tabs([
         "C1: Mandatory Training",
@@ -3551,87 +3768,8 @@ with _timed("Section C render"), sec_c:
             "C1.2: Ways of Working",
         ])
 
-        # ── Shared data: service map and training completion ───────────
-        C1_SERVICE_MAP = [
-            ("AdultsCommg",                   lambda d: d[d["svc_group"] == "Adults Commissioning"]),
-            ("AdltOps HIS & IC",              lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "CHC, HIS and Intermediate Care")]),
-            ("AdltOps Nbhd MH & LD",          lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"].isin(["Neighbourhoods", "Mental Health", "Learning Disabilities"]))]),
-            ("AdltOps OT",                    lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Occupational Therapy: Staff Dev, SILC and DFG")]),
-            ("AdltOps Social Work",           lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["svc_name"] == "Social Work: Staff Dev, Safeguarding, MCA & DoLS")]),
-            ("Adlts Housing General Fund",    lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
-            ("CEO-ExecDir-ServDir",           lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Exec and Service Directors")]),
-            ("CEO & Elections",               lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
-            ("CEO-Elections",                 lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
-            ("C&F CLA Leaving Care & CWD",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "CLA Leaving Care and CWD")]),
-            ("C&F Fostering & Permanence",    lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Fostering and Kinship")]),
-            ("C&F Help & Protect",            lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Help and Protect")]),
-            ("C&F Prevention & YJ",           lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Prevention and Youth Justice")]),
-            ("C&F Public Health Nursing",     lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "Public Health Nursing")]),
-            ("C&F QA & Partnerships",         lambda d: d[(d["svc_group"] == "Children and Families") & (d["svc_name"] == "QA and Partnerships")]),
-            ("CFE-C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
-            ("Chld Commissioning & Perf",     lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
-            ("Chld Comm BusinessOps",         lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["svc_name"] == "Business Operations")]),
-            ("Educ Curriculum & Training",    lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Curriculum and Training")]),
-            ("Educ EP & SEND",                lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "SEND Assessment and Review and Principal Educational Psychologist")]),
-            ("Educ Leadership",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Leadership")]),
-            ("Educ Operations",               lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Operations")]),
-            ("Educ Places",                   lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Education Places")]),
-            ("Educ Virtual School",           lambda d: d[(d["svc_group"] == "Education") & (d["svc_name"] == "Virtual School")]),
-            ("Finance & Procurement",         lambda d: d[d["Q1"] == "Finance and Procurement"]),
-            ("Revs & Bens",                   lambda d: d[d["svc_name"] == "Revenues and Benefits"]),
-            ("EcDev Skills & Climate",        lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
-            ("HRA Housing",                   lambda d: d[d["svc_name"] == "HRA Property"]),
-            ("Infr&Trans Highways",           lambda d: d[(d["svc_name"] == "Highways") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Infr&Trans Infra Programmes",   lambda d: d[d["svc_name"] == "Infrastructure Programmes"]),
-            ("Infr&Trans Traffic RS&Parking", lambda d: d[d["svc_name"] == "Traffic Management RS and Parking"]),
-            ("Infr&Trans Transportation",     lambda d: d[d["svc_name"] == "Transportation"]),
-            ("Partnership Loc & Culture",     lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
-            ("Planning",                      lambda d: d[d["svc_group"] == "Planning"]),
-            ("Property",                      lambda d: d[d["svc_name"] == "Property"]),
-            ("Reg&Ops Customer Ops",          lambda d: d[d["svc_name"] == "Customer Operations"]),
-            ("Reg&Ops Lifeline & OOH",        lambda d: d[d["svc_name"] == "Lifeline & OOH"]),
-            ("Reg&Ops Operations",            lambda d: d[d["svc_name"] == "Operations"]),
-            ("Reg&Ops Regulatory Services",   lambda d: d[d["svc_name"] == "Regulatory Services"]),
-            ("Regs&Ops Waste & Scientific",   lambda d: d[d["svc_name"].isin(["Waste", "Scientific Services"])]),
-            ("Democratic Services & Gov",     lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
-            ("ICT",                           lambda d: d[d["svc_group"] == "ICT"]),
-            ("HR&OD",                         lambda d: d[d["svc_group"] == "HR and OD"]),
-            ("Legal",                         lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
-            ("Public Health",                 lambda d: d[d["svc_group"] == "Public Health"]),
-            ("Strategy & Performance",        lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
-        ]
-
-        C1_TRAINING = {
-            "AdultsCommg": 93, "AdltOps HIS & IC": 82, "AdltOps Nbhd MH & LD": 87,
-            "AdltOps OT": 89, "AdltOps Social Work": 82, "Adlts Housing General Fund": 84,
-            "CEO-ExecDir-ServDir": 87, "CEO & Elections": 100, "CEO-Elections": 91,
-            "C&F CLA Leaving Care & CWD": 78, "C&F Fostering & Permanence": 83,
-            "C&F Help & Protect": 71, "C&F Prevention & YJ": 93,
-            "C&F Public Health Nursing": 96, "C&F QA & Partnerships": 83,
-            "CFE-C&F": 52, "Chld Commissioning & Perf": 89, "Chld Comm BusinessOps": 99,
-            "Educ Curriculum & Training": 82, "Educ EP & SEND": 80,
-            "Educ Leadership": 96, "Educ Operations": 90, "Educ Places": 95,
-            "Educ Virtual School": 90, "Finance & Procurement": 97, "Revs & Bens": 93,
-            "EcDev Skills & Climate": 82, "HRA Housing": 96, "Infr&Trans Highways": 83,
-            "Infr&Trans Infra Programmes": 90, "Infr&Trans Traffic RS&Parking": 94,
-            "Infr&Trans Transportation": 37, "Partnership Loc & Culture": 92,
-            "Planning": 75, "Property": 94, "Reg&Ops Customer Ops": 99,
-            "Reg&Ops Lifeline & OOH": 96, "Reg&Ops Operations": 92,
-            "Reg&Ops Regulatory Services": 88, "Regs&Ops Waste & Scientific": 98,
-            "Democratic Services & Gov": 74, "ICT": 94, "HR&OD": 97,
-            "Legal": 69, "Public Health": 99, "Strategy & Performance": 95,
-        }
-
-        # Pre-compute per-service filtered dataframes
-        _c1_rows = [(lbl, fn(filtered)) for lbl, fn in C1_SERVICE_MAP]
-        _c1_rows = [(lbl, sub) for lbl, sub in _c1_rows if len(sub) > 0]
-        _c1_labels = [r[0] for r in _c1_rows]
+        _c1_labels, _c1_ee_scores, _c1_wow_p, _c1_wow_i = _precompute_c1(filtered)
         _c1_training = [C1_TRAINING.get(lbl) for lbl in _c1_labels]
-        _c1_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c1_rows]
-        _c1_sort = sorted(range(len(_c1_labels)), key=lambda i: _c1_ee_pre[i])
-        _c1_rows = [_c1_rows[i] for i in _c1_sort]
-        _c1_labels = [_c1_labels[i] for i in _c1_sort]
-        _c1_training = [_c1_training[i] for i in _c1_sort]
 
         def _c1_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
             _x = x_labels if x_labels is not None else _c1_labels
@@ -3675,7 +3813,6 @@ with _timed("Section C render"), sec_c:
 
         with c1_1:
             st.markdown("#### Employee Experience vs Training Completion — by Service")
-            _c1_ee_scores = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c1_rows]
             _c1_dual_chart(
                 _c1_ee_scores,
                 "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
@@ -3691,7 +3828,7 @@ with _timed("Section C render"), sec_c:
                 st.markdown(f"#### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
-                _wv = [sub[_wc].mean() for _, sub in _c1_rows]
+                _wv = _c1_wow_p[_wc]
                 _wsort = sorted(range(len(_c1_labels)), key=lambda i: _wv[i])
                 _c1_dual_chart(
                     [_wv[i] for i in _wsort],
@@ -3704,53 +3841,8 @@ with _timed("Section C render"), sec_c:
     with c2:
         c2_1, c2_2 = st.tabs(["C2.1: Employee Experience", "C2.2: Ways of Working"])
 
-        C23_SERVICE_MAP = [
-            ("Legal (RST)",               lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
-            ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
-            ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
-            ("HRA Property (CPE)",        lambda d: d[d["svc_name"] == "HRA Property"]),
-            ("Education (CFE)",           lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
-            ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Children & Families (CFE)", lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
-            ("Adults Operations (ASH)",   lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
-            ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
-            ("Property (CPE)",            lambda d: d[d["svc_name"] == "Property"]),
-            ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
-            ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
-            ("Democratic & Gov (RST)",    lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
-            ("EcDev (CPE)",               lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
-            ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
-            ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
-            ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
-            ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
-            ("Commissioning & Perf (CFE)",lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
-            ("ICT (RST)",                 lambda d: d[d["svc_group"] == "ICT"]),
-            ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
-        ]
-
-        C2_SICKNESS = {
-            "Legal (RST)": 7.77, "Housing (ASH)": 6.83, "Electoral Services": 6.41,
-            "HRA Property (CPE)": 6.08, "Education (CFE)": 5.98, "Infra & Transport (CPE)": 5.75,
-            "Children & Families (CFE)": 5.62, "Adults Operations (ASH)": 5.21,
-            "CEO Office & Directors": 4.98, "Property (CPE)": 4.92,
-            "Public Health (RST)": 4.90, "Reg & Ops (CPE)": 4.89,
-            "Adults Commissioning": 4.79, "Democratic & Gov (RST)": 4.72,
-            "EcDev (CPE)": 4.65, "HR&OD (RST)": 4.45, "Planning (CPE)": 4.44,
-            "Finance & Procurement": 4.39, "Partnership Loc & Culture": 4.31,
-            "Commissioning & Perf (CFE)": 4.31, "ICT (RST)": 4.21,
-            "Strategy & Comms (RST)": 3.64,
-        }
-
-        _c23_rows = [(lbl, fn(filtered)) for lbl, fn in C23_SERVICE_MAP]
-        _c23_rows = [(lbl, sub) for lbl, sub in _c23_rows if len(sub) > 0]
-        _c23_labels = [r[0] for r in _c23_rows]
+        _c23_labels, _c23_ee_scores, _c23_wow_p, _c23_wow_i = _precompute_c23(filtered)
         _c2_comp = [C2_SICKNESS.get(lbl) for lbl in _c23_labels]
-        _c23_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
-        _c23_sort = sorted(range(len(_c23_labels)), key=lambda i: _c23_ee_pre[i])
-        _c23_rows = [_c23_rows[i] for i in _c23_sort]
-        _c23_labels = [_c23_labels[i] for i in _c23_sort]
-        _c2_comp = [_c2_comp[i] for i in _c23_sort]
 
         def _c23_dual_chart(y_vals, y_title, comp_vals, comp_title, comp_suffix, comp_color, y_range, comp_range, chart_key, caption_text, x_labels=None):
             _x = x_labels if x_labels is not None else _c23_labels
@@ -3794,9 +3886,8 @@ with _timed("Section C render"), sec_c:
 
         with c2_1:
             st.markdown("#### Employee Experience vs Sickness Absence — by Service")
-            _c2_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
             _c23_dual_chart(
-                _c2_ee, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 _c2_comp, "Avg Sickness Days", " days", "#E07070",
                 [-0.2, 4.5], [0, 10],
                 "c2_1_bar",
@@ -3811,7 +3902,7 @@ with _timed("Section C render"), sec_c:
                 st.markdown(f"#### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
-                _wv = [sub[_wc].mean() for _, sub in _c23_rows]
+                _wv = _c23_wow_p[_wc]
                 _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
                 _c23_dual_chart(
                     [_wv[i] for i in _wsort],
@@ -3839,13 +3930,11 @@ with _timed("Section C render"), sec_c:
         }
 
         _c3_comp = [C3_TURNOVER.get(lbl) for lbl in _c23_labels]
-        _c3_comp = [_c3_comp[i] for i in _c23_sort]
 
         with c3_1:
             st.markdown("#### Employee Experience vs Turnover — by Service")
-            _c3_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
             _c23_dual_chart(
-                _c3_ee, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
+                _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 _c3_comp, "Turnover (%)", "%", "#E07070",
                 [-0.2, 4.5], [0, 3],
                 "c3_1_bar",
@@ -3860,7 +3949,7 @@ with _timed("Section C render"), sec_c:
                 st.markdown(f"#### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
-                _wv = [sub[_wc].mean() for _, sub in _c23_rows]
+                _wv = _c23_wow_p[_wc]
                 _wsort = sorted(range(len(_c23_labels)), key=lambda i: _wv[i])
                 _c23_dual_chart(
                     [_wv[i] for i in _wsort],
@@ -3874,44 +3963,8 @@ with _timed("Section C render"), sec_c:
     with c4:
         c4_1, c4_2 = st.tabs(["C4.1: Employee Experience", "C4.2: Ways of Working"])
 
-        C4_SERVICE_MAP = [
-            ("C&F",                       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
-            ("Adults Services (ASH)",     lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
-            ("HRA (ASH)",                 lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
-            ("Housing (ASH)",             lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
-            ("Infra & Transport (CPE)",   lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Planning (CPE)",            lambda d: d[d["svc_group"] == "Planning"]),
-            ("Climate (CPE)",             lambda d: d[(d["svc_name"] == "Climate and Natural Environment")]),
-            ("Reg & Ops (CPE)",           lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Partnership & Loc (CPE)",   lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
-            ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
-            ("HR&OD (RST)",               lambda d: d[d["svc_group"] == "HR and OD"]),
-            ("Digital Services (RST)",    lambda d: d[d["svc_group"] == "ICT"]),
-            ("Strategy & Comms (RST)",    lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
-            ("Public Health (RST)",       lambda d: d[d["svc_group"] == "Public Health"]),
-            ("Procurement (CFO)",         lambda d: d[d["svc_name"] == "Procurement"]),
-            ("Finance (CFO)",             lambda d: d[(d["Q1"] == "Finance and Procurement") & (d["svc_name"] != "Procurement")]),
-            ("CEO Office",                lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
-        ]
-
-        C4_PROCUREMENT = {
-            "C&F": 6, "Adults Services (ASH)": 20, "HRA (ASH)": 0, "Housing (ASH)": 23,
-            "Infra & Transport (CPE)": 11, "Planning (CPE)": 8, "Climate (CPE)": 6,
-            "Reg & Ops (CPE)": 5, "Partnership & Loc (CPE)": 0, "EcDev Skills & Climate": 3,
-            "HR&OD (RST)": 0, "Digital Services (RST)": 4, "Strategy & Comms (RST)": 0,
-            "Public Health (RST)": 0, "Procurement (CFO)": 0, "Finance (CFO)": 1,
-            "CEO Office": 0,
-        }
-
-        _c4_rows = [(lbl, fn(filtered)) for lbl, fn in C4_SERVICE_MAP]
-        _c4_rows = [(lbl, sub) for lbl, sub in _c4_rows if len(sub) > 0]
-        _c4_labels = [r[0] for r in _c4_rows]
+        _c4_labels, _c4_ee_scores, _c4_wow_p, _c4_wow_i = _precompute_c4(filtered)
         _c4_comp = [C4_PROCUREMENT.get(lbl) for lbl in _c4_labels]
-        _c4_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c4_rows]
-        _c4_sort = sorted(range(len(_c4_labels)), key=lambda i: _c4_ee_pre[i])
-        _c4_rows = [_c4_rows[i] for i in _c4_sort]
-        _c4_labels = [_c4_labels[i] for i in _c4_sort]
-        _c4_comp = [_c4_comp[i] for i in _c4_sort]
 
         def _c4_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
             _x = x_labels if x_labels is not None else _c4_labels
@@ -3955,9 +4008,8 @@ with _timed("Section C render"), sec_c:
 
         with c4_1:
             st.markdown("#### Employee Experience vs Procurement Breaches — by Service")
-            _c4_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c4_rows]
             _c4_dual_chart(
-                _c4_ee,
+                _c4_ee_scores,
                 "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 "c4_1_bar",
                 "Blue = average EE score (left axis, higher = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
@@ -3971,7 +4023,7 @@ with _timed("Section C render"), sec_c:
                 st.markdown(f"#### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
-                _wv = [sub[_wc].mean() for _, sub in _c4_rows]
+                _wv = _c4_wow_p[_wc]
                 _wsort = sorted(range(len(_c4_labels)), key=lambda i: _wv[i])
                 _c4_dual_chart(
                     [_wv[i] for i in _wsort],
@@ -3984,51 +4036,8 @@ with _timed("Section C render"), sec_c:
     with c5:
         c5_1, c5_2 = st.tabs(["C5.1: Employee Experience", "C5.2: Ways of Working"])
 
-        C5_SERVICE_MAP = [
-            ("Adults Commissioning",      lambda d: d[d["svc_group"] == "Adults Commissioning"]),
-            ("Adults Operations",         lambda d: d[(d["svc_group"] == "Adults Health & Operations") & (d["Q1"] == "Adult Services and Housing")]),
-            ("Housing",                   lambda d: d[(d["svc_group"] == "Adults Housing General Fund") & (d["Q1"] == "Adult Services and Housing")]),
-            ("Electoral Services",        lambda d: d[(d["svc_group"] == "CEO and Electoral Services") & (d["svc_name"] == "Elections")]),
-            ("CEO Office & Directors",    lambda d: d[d["svc_group"] == "CEO and Electoral Services"]),
-            ("Children & Families",       lambda d: d[(d["svc_group"] == "Children and Families") & (d["Q1"] == "Children, Families and Education")]),
-            ("Commissioning & Perf",      lambda d: d[(d["svc_group"] == "Commissioning & Performance") & (d["Q1"] == "Children, Families and Education")]),
-            ("Education",                 lambda d: d[(d["svc_group"] == "Education") & (d["Q1"] == "Children, Families and Education")]),
-            ("EcDev Skills & Climate",    lambda d: d[d["svc_group"] == "Economic Development, Skills and Climate"]),
-            ("HRA & Property",            lambda d: d[d["svc_name"].isin(["HRA Property", "Property"])]),
-            ("Infra & Transport",         lambda d: d[(d["svc_group"] == "Infrastructure and Transport") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Partnership Loc & Culture", lambda d: d[d["svc_group"] == "Partnerships, Localities and Culture"]),
-            ("Planning",                  lambda d: d[d["svc_group"] == "Planning"]),
-            ("Reg & Ops",                 lambda d: d[(d["svc_group"] == "Regulatory and Operations") & (d["Q1"] == "Community, Place and Economy")]),
-            ("Democratic & Gov",          lambda d: d[d["svc_name"] == "Democratic Services & Governance"]),
-            ("ICT Services",              lambda d: d[d["svc_group"] == "ICT"]),
-            ("HR&OD",                     lambda d: d[d["svc_group"] == "HR and OD"]),
-            ("Legal",                     lambda d: d[(d["svc_name"] == "Legal") & (d["Q1"] == "Resources, Strategy and Transformation")]),
-            ("Public Health",             lambda d: d[d["svc_group"] == "Public Health"]),
-            ("Strategy & Comms",          lambda d: d[d["svc_group"] == "Strategy, Performance and Communications"]),
-            ("Finance & Procurement",     lambda d: d[d["Q1"] == "Finance and Procurement"]),
-        ]
-
-        C5_COMPLETION = {
-            "Adults Commissioning": 91.4, "Adults Operations": 34.1, "Housing": 45.8,
-            "Electoral Services": 33.3, "CEO Office & Directors": 155.0,
-            "Children & Families": 22.2, "Commissioning & Perf": 32.9,
-            "Education": 36.7, "EcDev Skills & Climate": 42.4, "HRA & Property": 22.9,
-            "Infra & Transport": 43.5, "Partnership Loc & Culture": 52.1,
-            "Planning": 51.9, "Reg & Ops": 34.7, "Democratic & Gov": 59.1,
-            "ICT Services": 38.4, "HR&OD": 72.0, "Legal": 47.1,
-            "Public Health": 47.0, "Strategy & Comms": 76.0,
-            "Finance & Procurement": 43.9,
-        }
-
-        _c5_rows = [(lbl, fn(filtered)) for lbl, fn in C5_SERVICE_MAP]
-        _c5_rows = [(lbl, sub) for lbl, sub in _c5_rows if len(sub) > 0]
-        _c5_labels = [r[0] for r in _c5_rows]
+        _c5_labels, _c5_ee_scores, _c5_wow_p, _c5_wow_i = _precompute_c5(filtered)
         _c5_comp = [C5_COMPLETION.get(lbl) for lbl in _c5_labels]
-        _c5_ee_pre = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c5_rows]
-        _c5_sort = sorted(range(len(_c5_labels)), key=lambda i: _c5_ee_pre[i])
-        _c5_rows = [_c5_rows[i] for i in _c5_sort]
-        _c5_labels = [_c5_labels[i] for i in _c5_sort]
-        _c5_comp = [_c5_comp[i] for i in _c5_sort]
 
         def _c5_dual_chart(y_vals, y_title, chart_key, caption_text, x_labels=None, comp_override=None):
             _x = x_labels if x_labels is not None else _c5_labels
@@ -4072,9 +4081,8 @@ with _timed("Section C render"), sec_c:
 
         with c5_1:
             st.markdown("#### Employee Experience vs Survey Completion — by Service")
-            _c5_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c5_rows]
             _c5_dual_chart(
-                _c5_ee,
+                _c5_ee_scores,
                 "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 "c5_1_bar",
                 "Blue = average EE score (left axis, higher = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
@@ -4088,7 +4096,7 @@ with _timed("Section C render"), sec_c:
                 st.markdown(f"#### {_wt}")
                 if _ws:
                     st.caption(f'"{_ws}"')
-                _wv = [sub[_wc].mean() for _, sub in _c5_rows]
+                _wv = _c5_wow_p[_wc]
                 _wsort = sorted(range(len(_c5_labels)), key=lambda i: _wv[i])
                 _c5_dual_chart(
                     [_wv[i] for i in _wsort],
