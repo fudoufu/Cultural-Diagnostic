@@ -453,16 +453,15 @@ def apply_filters(df: pd.DataFrame, selections: dict) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def spearman_matrix(df: pd.DataFrame, x_cols: list, y_cols: list) -> pd.DataFrame:
-    from scipy.stats import spearmanr
     all_cols = list(dict.fromkeys(x_cols + y_cols))
-    data = df[all_cols].astype(float).to_numpy()
-    # scipy.stats.spearmanr on a 2D array computes the full matrix in one
-    # vectorised C call — much faster than pandas' pairwise Python loop.
-    result = spearmanr(data, nan_policy="omit")
-    n = len(all_cols)
-    corr_arr = result.statistic if n > 2 else np.array([[1.0, float(result.statistic)], [float(result.statistic), 1.0]])
-    corr_df = pd.DataFrame(corr_arr, index=all_cols, columns=all_cols)
-    return corr_df.loc[x_cols, y_cols]
+    clean = df[all_cols].astype(float).dropna()
+    if len(clean) < 3:
+        return pd.DataFrame(np.nan, index=x_cols, columns=y_cols)
+    # Rank once (pandas vectorised), then corrcoef via numpy BLAS.
+    # dropna() avoids masked-array paths in scipy/pandas which bypass BLAS.
+    ranked = clean.rank().to_numpy()
+    corr_arr = np.corrcoef(ranked.T)
+    return pd.DataFrame(corr_arr, index=all_cols, columns=all_cols).loc[x_cols, y_cols]
 
 
 def make_writable_matrix(mat: pd.DataFrame) -> pd.DataFrame:
