@@ -1944,6 +1944,12 @@ with sec_a:
 
 
         with heatmaps_tab:
+            if not st.session_state.get('a13_loaded'):
+                st.info('Correlational heatmaps not computed yet — click below to load.')
+                if st.button('▶ Load Correlational Heatmaps', type='primary', key='load_a13_btn'):
+                    st.session_state['a13_loaded'] = True
+                    st.rerun()
+            else:
                 h1, h2, h3 = st.tabs([
                     "WoW × Outcomes",
                     "WoW × WoW",
@@ -3371,98 +3377,104 @@ with sec_a:
             selected_dir = _b_dir
 
         with heatmaps_tab:
-            h1, h2, h3 = st.tabs([
-                "WoW × Outcomes",
-                "WoW × WoW",
-                "Outcomes × Outcomes",
-            ])
+            if not st.session_state.get('b13_loaded'):
+                st.info('Correlational heatmaps not computed yet — click below to load.')
+                if st.button('▶ Load Correlational Heatmaps', type='primary', key='load_b13_btn'):
+                    st.session_state['b13_loaded'] = True
+                    st.rerun()
+            else:
+                h1, h2, h3 = st.tabs([
+                    "WoW × Outcomes",
+                    "WoW × WoW",
+                    "Outcomes × Outcomes",
+                ])
 
-            # ── H1: Ways of Working × Outcomes ───────────────────
-            with h1:
-                a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
-                with a1_place:
-                    st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
-                    st.caption(
-                        "Each cell shows the Spearman correlation (r) between a Place-level Ways of Working "
-                        "theme (rows) and an employee experience outcome (columns). Place themes reflect the "
-                        "shared working environment — norms and behaviours that feel consistent across the team "
-                        "or directorate. Darker blue = stronger positive relationship; darker red = stronger "
-                        "negative. Values above ~0.2 are worth noting; above ~0.4 indicate a meaningful pattern. "
-                        "Read across a row to see which outcomes a given working norm connects to most strongly."
-                    )
-                    mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
-                    mat.index   = WOW_THEMES
-                    mat.columns = OUTCOME_LABELS
-                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
-                                    use_container_width=True, key="bh1_place")
-                with a1_ind:
-                    st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
-                    st.caption(
-                        "Each cell shows the Spearman correlation (r) between an Individual-level Ways of Working "
-                        "theme (rows) and an employee experience outcome (columns). Individual themes reflect how "
-                        "each person personally operates — their own habits and approach, regardless of what the "
-                        "team around them does. Darker blue = stronger positive relationship; darker red = stronger "
-                        "negative. Compare this map with the Place heatmap to see whether environmental or personal "
-                        "behaviours are more strongly linked to each outcome."
-                    )
-                    mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
-                    mat.index   = WOW_THEMES
-                    mat.columns = OUTCOME_LABELS
-                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
-                                    use_container_width=True, key="bh1_ind")
+                # ── H1: Ways of Working × Outcomes ───────────────────
+                with h1:
+                    a1_place, a1_ind = st.tabs(["Place (P)", "Individual (I)"])
+                    with a1_place:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Employee Experience")
+                        st.caption(
+                            "Each cell shows the Spearman correlation (r) between a Place-level Ways of Working "
+                            "theme (rows) and an employee experience outcome (columns). Place themes reflect the "
+                            "shared working environment — norms and behaviours that feel consistent across the team "
+                            "or directorate. Darker blue = stronger positive relationship; darker red = stronger "
+                            "negative. Values above ~0.2 are worth noting; above ~0.4 indicate a meaningful pattern. "
+                            "Read across a row to see which outcomes a given working norm connects to most strongly."
+                        )
+                        mat = spearman_matrix(dir_df, WOW_PLACE_COLS, OUTCOME_COLS)
+                        mat.index   = WOW_THEMES
+                        mat.columns = OUTCOME_LABELS
+                        render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
+                                        use_container_width=True, key="bh1_place")
+                    with a1_ind:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Employee Experience")
+                        st.caption(
+                            "Each cell shows the Spearman correlation (r) between an Individual-level Ways of Working "
+                            "theme (rows) and an employee experience outcome (columns). Individual themes reflect how "
+                            "each person personally operates — their own habits and approach, regardless of what the "
+                            "team around them does. Darker blue = stronger positive relationship; darker red = stronger "
+                            "negative. Compare this map with the Place heatmap to see whether environmental or personal "
+                            "behaviours are more strongly linked to each outcome."
+                        )
+                        mat = spearman_matrix(dir_df, WOW_IND_COLS, OUTCOME_COLS)
+                        mat.index   = WOW_THEMES
+                        mat.columns = OUTCOME_LABELS
+                        render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
+                        st.plotly_chart(make_heatmap(mat.T, OUTCOME_LABELS, WOW_THEMES, y_statements=OUTCOME_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
+                                        use_container_width=True, key="bh1_ind")
 
-            # ── H2: Ways of Working × Ways of Working ────────────
-            with h2:
-                a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
-                with a2_place:
-                    st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
+                # ── H2: Ways of Working × Ways of Working ────────────
+                with h2:
+                    a2_place, a2_ind = st.tabs(["Place (P)", "Individual (I)"])
+                    with a2_place:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Place) × Ways of Working (Place)")
+                        st.caption(
+                            "Each cell shows the Spearman correlation between two Place-level Ways of Working themes. "
+                            "Strong positive correlations (dark blue) mean those norms tend to co-exist — groups that "
+                            "display one tend to display the other too. Strong negative correlations (dark red) indicate "
+                            "genuinely opposing orientations. Use this to identify clusters of related working norms "
+                            "and to flag themes that may be measuring the same underlying dimension before regression modelling."
+                        )
+                        mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
+                        mat.index = mat.columns = WOW_THEMES
+                        fill_diagonal_with_nan(mat)
+                        render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_PLACE_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
+                                        use_container_width=True, key="bh2_place")
+                    with a2_ind:
+                        st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
+                        st.caption(
+                            "Each cell shows the Spearman correlation between two Individual-level Ways of Working themes. "
+                            "Strong positive correlations mean those personal behaviours tend to appear together in the same "
+                            "people. Use this alongside the Place heatmap to see whether individual habits cluster differently "
+                            "from the team-level norms — a divergence can point to tension between personal style and the "
+                            "shared working environment."
+                        )
+                        mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
+                        mat.index = mat.columns = WOW_THEMES
+                        fill_diagonal_with_nan(mat)
+                        render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
+                        st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_IND_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
+                                        use_container_width=True, key="bh2_ind")
+
+                # ── H3: Outcomes × Outcomes ───────────────────────────
+                with h3:
+                    st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
                     st.caption(
-                        "Each cell shows the Spearman correlation between two Place-level Ways of Working themes. "
-                        "Strong positive correlations (dark blue) mean those norms tend to co-exist — groups that "
-                        "display one tend to display the other too. Strong negative correlations (dark red) indicate "
-                        "genuinely opposing orientations. Use this to identify clusters of related working norms "
-                        "and to flag themes that may be measuring the same underlying dimension before regression modelling."
+                        "Each cell shows the Spearman correlation between two employee experience outcomes. "
+                        "Strong positive correlations indicate outcomes that tend to rise and fall together — "
+                        "suggesting they may be capturing the same underlying dimension of experience. "
+                        "Use this to understand how interconnected the outcome measures are before interpreting "
+                        "individual scores in isolation, and to inform how outcomes might be grouped for further analysis."
                     )
-                    mat = make_writable_matrix(spearman_matrix(dir_df, WOW_PLACE_COLS, WOW_PLACE_COLS))
-                    mat.index = mat.columns = WOW_THEMES
+                    mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
+                    mat.index = mat.columns = OUTCOME_LABELS
                     fill_diagonal_with_nan(mat)
                     render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_PLACE_STATEMENTS, x_statements=WOW_PLACE_STATEMENTS),
-                                    use_container_width=True, key="bh2_place")
-                with a2_ind:
-                    st.markdown("#### Correlational Heatmap: Ways of Working (Individual) × Ways of Working (Individual)")
-                    st.caption(
-                        "Each cell shows the Spearman correlation between two Individual-level Ways of Working themes. "
-                        "Strong positive correlations mean those personal behaviours tend to appear together in the same "
-                        "people. Use this alongside the Place heatmap to see whether individual habits cluster differently "
-                        "from the team-level norms — a divergence can point to tension between personal style and the "
-                        "shared working environment."
-                    )
-                    mat = make_writable_matrix(spearman_matrix(dir_df, WOW_IND_COLS, WOW_IND_COLS))
-                    mat.index = mat.columns = WOW_THEMES
-                    fill_diagonal_with_nan(mat)
-                    render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                    st.plotly_chart(make_heatmap(mat, WOW_THEMES, WOW_THEMES, y_statements=WOW_IND_STATEMENTS, x_statements=WOW_IND_STATEMENTS),
-                                    use_container_width=True, key="bh2_ind")
-
-            # ── H3: Outcomes × Outcomes ───────────────────────────
-            with h3:
-                st.markdown("#### Correlational Heatmap: Employee Experience × Employee Experience")
-                st.caption(
-                    "Each cell shows the Spearman correlation between two employee experience outcomes. "
-                    "Strong positive correlations indicate outcomes that tend to rise and fall together — "
-                    "suggesting they may be capturing the same underlying dimension of experience. "
-                    "Use this to understand how interconnected the outcome measures are before interpreting "
-                    "individual scores in isolation, and to inform how outcomes might be grouped for further analysis."
-                )
-                mat = make_writable_matrix(spearman_matrix(dir_df, OUTCOME_COLS, OUTCOME_COLS))
-                mat.index = mat.columns = OUTCOME_LABELS
-                fill_diagonal_with_nan(mat)
-                render_heatmap_cards(n_dir, mat, HEADCOUNT.get(selected_dir))
-                st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS, y_statements=OUTCOME_STATEMENTS, x_statements=OUTCOME_STATEMENTS),
-                                use_container_width=True, key="bh3")
+                    st.plotly_chart(make_heatmap(mat, OUTCOME_LABELS, OUTCOME_LABELS, y_statements=OUTCOME_STATEMENTS, x_statements=OUTCOME_STATEMENTS),
+                                    use_container_width=True, key="bh3")
 
     # ── Descriptive Analysis group ────────────────────────
     with _timed("B — b_desc_group render"), b_desc_group:
