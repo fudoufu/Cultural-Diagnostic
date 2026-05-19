@@ -2195,455 +2195,455 @@ with sec_a:
                 ])
 
                 with b112_dir_tab:
-                    st.caption(
-                        "For each directorate, shows the confirmed WoW drivers with a combined β ≥ 1 (positive) "
-                        "or ≤ -0.25 (negative) across all outcome models. "
-                        "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
-                    )
-                    _b_dir_pos, _b_dir_neg = {}, {}
-                    _b_dir_pos_freq, _b_dir_neg_freq = {}, {}
-                    _b_dir_pos_detail = {}
-                    _b_dir_neg_detail = {}
-                    _b_dir_total = 0
-                    with st.spinner("Computing drivers across all directorates…"):
-                        for _dir in directorates:
-                            _dir_df2 = filtered[filtered["Q1"] == _dir]
-                            if len(_dir_df2) < 5:
-                                continue
-                            _b_dir_total += 1
-                            _dir_res = run_driver_analysis_batch(
-                                _dir_df2,
-                                tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
-                                tuple(WOW_PLACE_COLS), tuple(WOW_THEMES),
-                                0.20, 0.05,
-                            )
-                            _dir_comb = {}
-                            for _r in _dir_res.values():
-                                if _r.get("status") == "ok":
-                                    for _, _row in _r["coef_df"].iterrows():
-                                        _lbl = _row["label"]
-                                        _dir_comb[_lbl] = _dir_comb.get(_lbl, 0.0) + _row["β_std"]
-                            _dpos = sorted([(l, b) for l, b in _dir_comb.items() if b >= 1],
-                                           key=lambda x: x[1], reverse=True)
-                            _dneg = sorted([(l, b) for l, b in _dir_comb.items() if b <= -0.25],
-                                           key=lambda x: x[1])
-                            if _dpos:
-                                _b_dir_pos[_dir] = [f"{l} ({b:+.2f})" for l, b in _dpos]
-                                for l, b in _dpos:
-                                    _b_dir_pos_freq[l] = _b_dir_pos_freq.get(l, 0) + 1
-                                    if l not in _b_dir_pos_detail:
-                                        _b_dir_pos_detail[l] = []
-                                    _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
-                                    _ddelta = (_dir_df2[WOW_PLACE_COLS[_wow_i]].mean() - _dir_df2[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
-                                    _b_dir_pos_detail[l].append((_dir, b, _ddelta))
-                            if _dneg:
-                                _b_dir_neg[_dir] = [f"{l} ({b:+.2f})" for l, b in _dneg]
-                                for l, b in _dneg:
-                                    _b_dir_neg_freq[l] = _b_dir_neg_freq.get(l, 0) + 1
-                                    if l not in _b_dir_neg_detail:
-                                        _b_dir_neg_detail[l] = []
-                                    _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
-                                    _ddelta = (_dir_df2[WOW_PLACE_COLS[_wow_i]].mean() - _dir_df2[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
-                                    _b_dir_neg_detail[l].append((_dir, b, _ddelta))
-                    # ── Shortlisted drivers (beta + delta cut-offs) ────────────
-                    def _shortlist_table_dir(detail_dict, label, is_pos):
-                        shortlist = {}
-                        for theme, entries in detail_dict.items():
-                            for unit, b, delta in entries:
-                                if abs(delta) > 0.5:
-                                    if unit not in shortlist:
-                                        shortlist[unit] = []
-                                    shortlist[unit].append((theme, b, delta))
-                        if not shortlist:
-                            st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
-                            return
-                        for unit in shortlist:
-                            shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
-                        max_rows = max(len(v) for v in shortlist.values())
-                        table = {}
-                        for unit, drivers in shortlist.items():
-                            cells = []
-                            for theme, b, delta in drivers:
-                                cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
-                            cells += [""] * (max_rows - len(cells))
-                            table[unit] = cells
-                        df_short = pd.DataFrame(table)
-                        df_short.index = [f"#{i+1}" for i in range(max_rows)]
-                        _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
-                        def _hl_cell(val):
-                            if not val:
+                    if not st.session_state.get('b112_dir_loaded'):
+                        st.info('Directorate driver analysis not computed yet — click below to load.')
+                        if st.button('▶ Load Directorate Analysis', type='primary', key='load_b112_dir_btn'):
+                            st.session_state['b112_dir_loaded'] = True
+                            st.rerun()
+                    else:
+                        st.caption(
+                            "For each directorate, shows the confirmed WoW drivers with a combined β ≥ 1 (positive) "
+                            "or ≤ -0.25 (negative) across all outcome models. "
+                            "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
+                        )
+                        _b_dir_pos, _b_dir_neg = {}, {}
+                        _b_dir_pos_freq, _b_dir_neg_freq = {}, {}
+                        _b_dir_pos_detail = {}
+                        _b_dir_neg_detail = {}
+                        _b_dir_total = 0
+                        with st.spinner("Computing drivers across all directorates…"):
+                            for _dir in directorates:
+                                _dir_df2 = filtered[filtered["Q1"] == _dir]
+                                if len(_dir_df2) < 5:
+                                    continue
+                                _b_dir_total += 1
+                                _dir_res = run_driver_analysis_batch(
+                                    _dir_df2,
+                                    tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                                    tuple(WOW_PLACE_COLS), tuple(WOW_THEMES),
+                                    0.20, 0.05,
+                                )
+                                _dir_comb = {}
+                                for _r in _dir_res.values():
+                                    if _r.get("status") == "ok":
+                                        for _, _row in _r["coef_df"].iterrows():
+                                            _lbl = _row["label"]
+                                            _dir_comb[_lbl] = _dir_comb.get(_lbl, 0.0) + _row["β_std"]
+                                _dpos = sorted([(l, b) for l, b in _dir_comb.items() if b >= 1],
+                                               key=lambda x: x[1], reverse=True)
+                                _dneg = sorted([(l, b) for l, b in _dir_comb.items() if b <= -0.25],
+                                               key=lambda x: x[1])
+                                if _dpos:
+                                    _b_dir_pos[_dir] = [f"{l} ({b:+.2f})" for l, b in _dpos]
+                                    for l, b in _dpos:
+                                        _b_dir_pos_freq[l] = _b_dir_pos_freq.get(l, 0) + 1
+                                        if l not in _b_dir_pos_detail:
+                                            _b_dir_pos_detail[l] = []
+                                        _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
+                                        _ddelta = (_dir_df2[WOW_PLACE_COLS[_wow_i]].mean() - _dir_df2[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
+                                        _b_dir_pos_detail[l].append((_dir, b, _ddelta))
+                                if _dneg:
+                                    _b_dir_neg[_dir] = [f"{l} ({b:+.2f})" for l, b in _dneg]
+                                    for l, b in _dneg:
+                                        _b_dir_neg_freq[l] = _b_dir_neg_freq.get(l, 0) + 1
+                                        if l not in _b_dir_neg_detail:
+                                            _b_dir_neg_detail[l] = []
+                                        _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
+                                        _ddelta = (_dir_df2[WOW_PLACE_COLS[_wow_i]].mean() - _dir_df2[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
+                                        _b_dir_neg_detail[l].append((_dir, b, _ddelta))
+                        def _shortlist_table_dir(detail_dict, label, is_pos):
+                            shortlist = {}
+                            for theme, entries in detail_dict.items():
+                                for unit, b, delta in entries:
+                                    if abs(delta) > 0.5:
+                                        if unit not in shortlist:
+                                            shortlist[unit] = []
+                                        shortlist[unit].append((theme, b, delta))
+                            if not shortlist:
+                                st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
+                                return
+                            for unit in shortlist:
+                                shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
+                            max_rows = max(len(v) for v in shortlist.values())
+                            table = {}
+                            for unit, drivers in shortlist.items():
+                                cells = []
+                                for theme, b, delta in drivers:
+                                    cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
+                                cells += [""] * (max_rows - len(cells))
+                                table[unit] = cells
+                            df_short = pd.DataFrame(table)
+                            df_short.index = [f"#{i+1}" for i in range(max_rows)]
+                            _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
+                            def _hl_cell(val):
+                                if not val:
+                                    return ""
+                                theme_name = val.split(" (β=")[0]
+                                if theme_name not in _STANDARD:
+                                    return "background-color: #FFF3CD; color: #1A2B3C"
                                 return ""
-                            theme_name = val.split(" (β=")[0]
-                            if theme_name not in _STANDARD:
-                                return "background-color: #FFF3CD; color: #1A2B3C"
-                            return ""
-                        st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
-                    st.markdown("#### Shortlisted Drivers — Directorates (β + Δ > 0.5)")
-                    st.caption("Positive shortlist: drivers with combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
-                    if _b_dir_pos_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_dir(_b_dir_pos_detail, "positive", True)
-                    if _b_dir_neg_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_dir(_b_dir_neg_detail, "negative", False)
-                    if _b_dir_pos:
-                        st.markdown("#### Where Each Positive Driver Appears")
-                        for _theme, _count in sorted(_b_dir_pos_freq.items(), key=lambda x: x[1], reverse=True):
-                            with st.expander(f"{_theme} — {_count} directorate{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b_dir_total} directorates analysed</p>', unsafe_allow_html=True)
-                                for _dv, _b, _dd in sorted(_b_dir_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True):
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_dv}</strong> '
-                                        f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Positive Drivers by Directorate (combined β ≥ 1)")
-                        _mpd = max(len(v) for v in _b_dir_pos.values())
-                        _pos_dfd = pd.DataFrame({k: v + [""] * (_mpd - len(v)) for k, v in _b_dir_pos.items()})
-                        _pos_dfd.index = [f"#{i+1}" for i in range(_mpd)]
-                        st.dataframe(_pos_dfd, use_container_width=True)
-                    else:
-                        st.info("No positive drivers with combined β ≥ 1 found at directorate level.")
+                            st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
+                        st.markdown("#### Shortlisted Drivers — Directorates (β + Δ > 0.5)")
+                        st.caption("Positive shortlist: drivers with combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
+                        if _b_dir_pos_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_dir(_b_dir_pos_detail, "positive", True)
+                        if _b_dir_neg_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_dir(_b_dir_neg_detail, "negative", False)
+                        if _b_dir_pos:
+                            st.markdown("#### Where Each Positive Driver Appears")
+                            for _theme, _count in sorted(_b_dir_pos_freq.items(), key=lambda x: x[1], reverse=True):
+                                with st.expander(f"{_theme} — {_count} directorate{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b_dir_total} directorates analysed</p>', unsafe_allow_html=True)
+                                    for _dv, _b, _dd in sorted(_b_dir_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True):
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_dv}</strong> '
+                                            f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Positive Drivers by Directorate (combined β ≥ 1)")
+                            _mpd = max(len(v) for v in _b_dir_pos.values())
+                            _pos_dfd = pd.DataFrame({k: v + [""] * (_mpd - len(v)) for k, v in _b_dir_pos.items()})
+                            _pos_dfd.index = [f"#{i+1}" for i in range(_mpd)]
+                            st.dataframe(_pos_dfd, use_container_width=True)
+                        else:
+                            st.info("No positive drivers with combined β ≥ 1 found at directorate level.")
 
-                    if _b_dir_neg:
-                        st.markdown("#### Where Each Negative Driver Appears")
-                        for _theme, _count in sorted(_b_dir_neg_freq.items(), key=lambda x: x[1], reverse=True):
-                            with st.expander(f"{_theme} — {_count} directorate{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b_dir_total} directorates analysed</p>', unsafe_allow_html=True)
-                                for _dv, _b, _dd in sorted(_b_dir_neg_detail.get(_theme, []), key=lambda x: x[1]):
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_dv}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Negative Drivers by Directorate (combined β ≤ -0.25)")
-                        _mnd = max(len(v) for v in _b_dir_neg.values())
-                        _neg_dfd = pd.DataFrame({k: v + [""] * (_mnd - len(v)) for k, v in _b_dir_neg.items()})
-                        _neg_dfd.index = [f"#{i+1}" for i in range(_mnd)]
-                        st.dataframe(_neg_dfd, use_container_width=True)
-                    else:
-                        st.info("No negative drivers with combined β ≤ -0.25 found at directorate level.")
+                        if _b_dir_neg:
+                            st.markdown("#### Where Each Negative Driver Appears")
+                            for _theme, _count in sorted(_b_dir_neg_freq.items(), key=lambda x: x[1], reverse=True):
+                                with st.expander(f"{_theme} — {_count} directorate{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b_dir_total} directorates analysed</p>', unsafe_allow_html=True)
+                                    for _dv, _b, _dd in sorted(_b_dir_neg_detail.get(_theme, []), key=lambda x: x[1]):
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_dv}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Negative Drivers by Directorate (combined β ≤ -0.25)")
+                            _mnd = max(len(v) for v in _b_dir_neg.values())
+                            _neg_dfd = pd.DataFrame({k: v + [""] * (_mnd - len(v)) for k, v in _b_dir_neg.items()})
+                            _neg_dfd.index = [f"#{i+1}" for i in range(_mnd)]
+                            st.dataframe(_neg_dfd, use_container_width=True)
+                        else:
+                            st.info("No negative drivers with combined β ≤ -0.25 found at directorate level.")
+
+                _DIR_ABBREV = {
+                    "Adult Services and Housing": "ASH",
+                    "Chief Exec's Office (including Executive and Service Directors)": "CEO",
+                    "Children, Families and Education": "CFE",
+                    "Community, Place and Economy": "CPE",
+                    "Finance and Procurement": "Finance",
+                    "Resources, Strategy and Transformation": "RST",
+                }
 
                 with b111_tab:
-                    st.caption(
-                        "For each service area across all directorates, shows the confirmed WoW drivers "
-                        "with a combined β ≥ 1 (positive) or ≤ -0.25 (negative) across all outcome models. "
-                        "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
-                    )
-                    _DIR_ABBREV = {
-                        "Adult Services and Housing": "ASH",
-                        "Chief Exec's Office (including Executive and Service Directors)": "CEO",
-                        "Children, Families and Education": "CFE",
-                        "Community, Place and Economy": "CPE",
-                        "Finance and Procurement": "Finance",
-                        "Resources, Strategy and Transformation": "RST",
-                    }
-                    _b111_svc_map = []
-                    for _dir in directorates:
-                        _dir_df = filtered[filtered["Q1"] == _dir]
-                        _abbrev = _DIR_ABBREV.get(_dir, _dir[:3])
-                        for _sg in get_filter_options(_dir_df, "svc_group"):
-                            _display_sg = f"{_sg} ({_abbrev})" if _sg == "N/A — go to service" else _sg
-                            _b111_svc_map.append((_dir, _display_sg, _dir_df[_dir_df["svc_group"] == _sg]))
-                    _b111_pred_cols = tuple(WOW_PLACE_COLS)
-                    _b111_pred_labels = tuple(WOW_THEMES)
-                    _b111_pos, _b111_neg = {}, {}
-                    _b111_pos_freq, _b111_neg_freq = {}, {}
-                    _b111_pos_detail = {}  # {theme: [(service_area, beta), ...]}
-                    _b111_neg_detail = {}
-                    _b111_total = sum(1 for _, _, _sdf in _b111_svc_map if len(_sdf) >= 5)
-                    with st.spinner("Computing drivers across all service areas…"):
-                        for _dir, _sg, _sg_df in _b111_svc_map:
-                            if len(_sg_df) < 5:
-                                continue
-                            _sg_res = run_driver_analysis_batch(
-                                _sg_df,
-                                tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
-                                _b111_pred_cols, _b111_pred_labels,
-                                0.20, 0.05,
-                            )
-                            _sg_comb = {}
-                            for _r in _sg_res.values():
-                                if _r.get("status") == "ok":
-                                    for _, _row in _r["coef_df"].iterrows():
-                                        _lbl = _row["label"]
-                                        _sg_comb[_lbl] = _sg_comb.get(_lbl, 0.0) + _row["β_std"]
-                            _pos = sorted([(l, b) for l, b in _sg_comb.items() if b >= 1],
-                                          key=lambda x: x[1], reverse=True)
-                            _neg = sorted([(l, b) for l, b in _sg_comb.items() if b <= -0.25],
-                                          key=lambda x: x[1])
-                            if _pos:
-                                _b111_pos[_sg] = [f"{l} ({b:+.2f})" for l, b in _pos]
-                                for l, b in _pos:
-                                    _b111_pos_freq[l] = _b111_pos_freq.get(l, 0) + 1
-                                    if l not in _b111_pos_detail:
-                                        _b111_pos_detail[l] = []
-                                    _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
-                                    _sadelta = (_sg_df[WOW_PLACE_COLS[_wow_i]].mean() - _sg_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
-                                    _b111_pos_detail[l].append((_sg, b, _sadelta))
-                            if _neg:
-                                _b111_neg[_sg] = [f"{l} ({b:+.2f})" for l, b in _neg]
-                                for l, _ in _neg:
-                                    _b111_neg_freq[l] = _b111_neg_freq.get(l, 0) + 1
-                    # ── Shortlisted drivers (beta + delta cut-offs) ────────────
-                    def _shortlist_table_sa(detail_dict, label, is_pos):
-                        shortlist = {}
-                        for theme, entries in detail_dict.items():
-                            for unit, b, delta in entries:
-                                if abs(delta) > 0.5:
-                                    if unit not in shortlist:
-                                        shortlist[unit] = []
-                                    shortlist[unit].append((theme, b, delta))
-                        if not shortlist:
-                            st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
-                            return
-                        for unit in shortlist:
-                            shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
-                        max_rows = max(len(v) for v in shortlist.values())
-                        table = {}
-                        for unit, drivers in shortlist.items():
-                            cells = []
-                            for theme, b, delta in drivers:
-                                cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
-                            cells += [""] * (max_rows - len(cells))
-                            table[unit] = cells
-                        df_short = pd.DataFrame(table)
-                        df_short.index = [f"#{i+1}" for i in range(max_rows)]
-                        _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
-                        def _hl_cell(val):
-                            if not val:
+                    if not st.session_state.get('b111_loaded'):
+                        st.info('Service area driver analysis not computed yet — click below to load.')
+                        if st.button('▶ Load Service Area Analysis', type='primary', key='load_b111_btn'):
+                            st.session_state['b111_loaded'] = True
+                            st.rerun()
+                    else:
+                        st.caption(
+                            "For each service area across all directorates, shows the confirmed WoW drivers "
+                            "with a combined β ≥ 1 (positive) or ≤ -0.25 (negative) across all outcome models. "
+                            "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
+                        )
+                        _b111_svc_map = []
+                        for _dir in directorates:
+                            _dir_df = filtered[filtered["Q1"] == _dir]
+                            _abbrev = _DIR_ABBREV.get(_dir, _dir[:3])
+                            for _sg in get_filter_options(_dir_df, "svc_group"):
+                                _display_sg = f"{_sg} ({_abbrev})" if _sg == "N/A — go to service" else _sg
+                                _b111_svc_map.append((_dir, _display_sg, _dir_df[_dir_df["svc_group"] == _sg]))
+                        _b111_pred_cols = tuple(WOW_PLACE_COLS)
+                        _b111_pred_labels = tuple(WOW_THEMES)
+                        _b111_pos, _b111_neg = {}, {}
+                        _b111_pos_freq, _b111_neg_freq = {}, {}
+                        _b111_pos_detail = {}
+                        _b111_neg_detail = {}
+                        _b111_total = sum(1 for _, _, _sdf in _b111_svc_map if len(_sdf) >= 5)
+                        with st.spinner("Computing drivers across all service areas…"):
+                            for _dir, _sg, _sg_df in _b111_svc_map:
+                                if len(_sg_df) < 5:
+                                    continue
+                                _sg_res = run_driver_analysis_batch(
+                                    _sg_df,
+                                    tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                                    _b111_pred_cols, _b111_pred_labels,
+                                    0.20, 0.05,
+                                )
+                                _sg_comb = {}
+                                for _r in _sg_res.values():
+                                    if _r.get("status") == "ok":
+                                        for _, _row in _r["coef_df"].iterrows():
+                                            _lbl = _row["label"]
+                                            _sg_comb[_lbl] = _sg_comb.get(_lbl, 0.0) + _row["β_std"]
+                                _pos = sorted([(l, b) for l, b in _sg_comb.items() if b >= 1],
+                                              key=lambda x: x[1], reverse=True)
+                                _neg = sorted([(l, b) for l, b in _sg_comb.items() if b <= -0.25],
+                                              key=lambda x: x[1])
+                                if _pos:
+                                    _b111_pos[_sg] = [f"{l} ({b:+.2f})" for l, b in _pos]
+                                    for l, b in _pos:
+                                        _b111_pos_freq[l] = _b111_pos_freq.get(l, 0) + 1
+                                        if l not in _b111_pos_detail:
+                                            _b111_pos_detail[l] = []
+                                        _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
+                                        _sadelta = (_sg_df[WOW_PLACE_COLS[_wow_i]].mean() - _sg_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
+                                        _b111_pos_detail[l].append((_sg, b, _sadelta))
+                                if _neg:
+                                    _b111_neg[_sg] = [f"{l} ({b:+.2f})" for l, b in _neg]
+                                    for l, _ in _neg:
+                                        _b111_neg_freq[l] = _b111_neg_freq.get(l, 0) + 1
+                        def _shortlist_table_sa(detail_dict, label, is_pos):
+                            shortlist = {}
+                            for theme, entries in detail_dict.items():
+                                for unit, b, delta in entries:
+                                    if abs(delta) > 0.5:
+                                        if unit not in shortlist:
+                                            shortlist[unit] = []
+                                        shortlist[unit].append((theme, b, delta))
+                            if not shortlist:
+                                st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
+                                return
+                            for unit in shortlist:
+                                shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
+                            max_rows = max(len(v) for v in shortlist.values())
+                            table = {}
+                            for unit, drivers in shortlist.items():
+                                cells = []
+                                for theme, b, delta in drivers:
+                                    cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
+                                cells += [""] * (max_rows - len(cells))
+                                table[unit] = cells
+                            df_short = pd.DataFrame(table)
+                            df_short.index = [f"#{i+1}" for i in range(max_rows)]
+                            _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
+                            def _hl_cell(val):
+                                if not val:
+                                    return ""
+                                theme_name = val.split(" (β=")[0]
+                                if theme_name not in _STANDARD:
+                                    return "background-color: #FFF3CD; color: #1A2B3C"
                                 return ""
-                            theme_name = val.split(" (β=")[0]
-                            if theme_name not in _STANDARD:
-                                return "background-color: #FFF3CD; color: #1A2B3C"
-                            return ""
-                        st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
-                    st.markdown("#### Shortlisted Drivers — Service Areas (β + Δ > 0.5)")
-                    st.caption("Positive shortlist: combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
-                    if _b111_pos_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_sa(_b111_pos_detail, "positive", True)
-                    if _b111_neg_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_sa(_b111_neg_detail, "negative", False)
+                            st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
+                        st.markdown("#### Shortlisted Drivers — Service Areas (β + Δ > 0.5)")
+                        st.caption("Positive shortlist: combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
+                        if _b111_pos_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_sa(_b111_pos_detail, "positive", True)
+                        if _b111_neg_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_sa(_b111_neg_detail, "negative", False)
+                        if _b111_pos:
+                            st.markdown("#### Where Each Positive Driver Appears")
+                            _ranked_pos = sorted(_b111_pos_freq.items(), key=lambda x: x[1], reverse=True)
+                            for _theme, _count in _ranked_pos:
+                                with st.expander(f"{_theme} — {_count} service area{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b111_total} service areas analysed</p>', unsafe_allow_html=True)
+                                    _svc_betas = sorted(_b111_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True)
+                                    for _sa, _b, _dd in _svc_betas:
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sa}</strong> '
+                                            f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Positive Drivers by Service Area (combined β ≥ 1)")
+                            _mp = max(len(v) for v in _b111_pos.values())
+                            _pos_df = pd.DataFrame(
+                                {k: v + [""] * (_mp - len(v)) for k, v in _b111_pos.items()}
+                            )
+                            _pos_df.index = [f"#{i+1}" for i in range(_mp)]
+                            st.dataframe(_pos_df, use_container_width=True)
+                        else:
+                            st.info("No positive drivers with combined β ≥ 1 found.")
 
-                    def _freq_summary_html(freq_dict, label):
-                        if not freq_dict:
-                            return ""
-                        ranked = sorted(freq_dict.items(), key=lambda x: x[1], reverse=True)
-                        items = "".join(
-                            f'<p class="card-sub">· {theme} — appears in <strong>{count}</strong> service area{"s" if count != 1 else ""}</p>'
-                            for theme, count in ranked
-                        )
-                        return (
-                            f'<div class="metric-card-lg" style="margin-bottom:16px">'
-                            f'<p class="card-label">Most frequently occurring {label} drivers</p>'
-                            f'{items}</div>'
-                        )
-
-                    if _b111_pos:
-                        st.markdown("#### Where Each Positive Driver Appears")
-                        _ranked_pos = sorted(_b111_pos_freq.items(), key=lambda x: x[1], reverse=True)
-                        for _theme, _count in _ranked_pos:
-                            with st.expander(f"{_theme} — {_count} service area{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b111_total} service areas analysed</p>', unsafe_allow_html=True)
-                                _svc_betas = sorted(_b111_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True)
-                                for _sa, _b, _dd in _svc_betas:
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sa}</strong> '
-                                        f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Positive Drivers by Service Area (combined β ≥ 1)")
-                        _mp = max(len(v) for v in _b111_pos.values())
-                        _pos_df = pd.DataFrame(
-                            {k: v + [""] * (_mp - len(v)) for k, v in _b111_pos.items()}
-                        )
-                        _pos_df.index = [f"#{i+1}" for i in range(_mp)]
-                        st.dataframe(_pos_df, use_container_width=True)
-                    else:
-                        st.info("No positive drivers with combined β ≥ 1 found.")
-
-                    if _b111_neg:
-                        st.markdown("#### Where Each Negative Driver Appears")
-                        for _theme, _count in sorted(_b111_neg_freq.items(), key=lambda x: x[1], reverse=True):
-                            with st.expander(f"{_theme} — {_count} service area{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b111_total} service areas analysed</p>', unsafe_allow_html=True)
-                                for _sa, _b, _dd in sorted(_b111_neg_detail.get(_theme, []), key=lambda x: x[1]):
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sa}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Negative Drivers by Service Area (combined β ≤ -0.25)")
-                        _mn = max(len(v) for v in _b111_neg.values())
-                        _neg_df = pd.DataFrame(
-                            {k: v + [""] * (_mn - len(v)) for k, v in _b111_neg.items()}
-                        )
-                        _neg_df.index = [f"#{i+1}" for i in range(_mn)]
-                        st.dataframe(_neg_df, use_container_width=True)
-                    else:
-                        st.info("No negative drivers with combined β ≤ -0.25 found.")
+                        if _b111_neg:
+                            st.markdown("#### Where Each Negative Driver Appears")
+                            for _theme, _count in sorted(_b111_neg_freq.items(), key=lambda x: x[1], reverse=True):
+                                with st.expander(f"{_theme} — {_count} service area{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b111_total} service areas analysed</p>', unsafe_allow_html=True)
+                                    for _sa, _b, _dd in sorted(_b111_neg_detail.get(_theme, []), key=lambda x: x[1]):
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sa}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Negative Drivers by Service Area (combined β ≤ -0.25)")
+                            _mn = max(len(v) for v in _b111_neg.values())
+                            _neg_df = pd.DataFrame(
+                                {k: v + [""] * (_mn - len(v)) for k, v in _b111_neg.items()}
+                            )
+                            _neg_df.index = [f"#{i+1}" for i in range(_mn)]
+                            st.dataframe(_neg_df, use_container_width=True)
+                        else:
+                            st.info("No negative drivers with combined β ≤ -0.25 found.")
 
                 with b112_tab:
-                    st.caption(
-                        "For each individual service across all directorates, shows the confirmed WoW drivers "
-                        "with a combined β ≥ 1 (positive) or ≤ -0.25 (negative) across all outcome models. "
-                        "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
-                    )
-                    _b112_svc_map = []
-                    for _dir in directorates:
-                        _dir_df = filtered[filtered["Q1"] == _dir]
-                        _abbrev = _DIR_ABBREV.get(_dir, _dir[:3])
-                        for _sg in get_filter_options(_dir_df, "svc_group"):
-                            _sg_df2 = _dir_df[_dir_df["svc_group"] == _sg]
-                            for _svc in get_filter_options(_sg_df2, "svc_name"):
-                                _svc_df = _sg_df2[_sg_df2["svc_name"] == _svc]
-                                _display_svc = f"{_svc} ({_abbrev})"
-                                _b112_svc_map.append((_dir, _display_svc, _svc_df))
-                    _b112_pos, _b112_neg = {}, {}
-                    _b112_pos_freq, _b112_neg_freq = {}, {}
-                    _b112_pos_detail = {}
-                    _b112_neg_detail = {}
-                    _b112_total = sum(1 for _, _, _sdf in _b112_svc_map if len(_sdf) >= 5)
-                    with st.spinner("Computing drivers across all services…"):
-                        for _dir, _dsvc, _svc_df in _b112_svc_map:
-                            if len(_svc_df) < 5:
-                                continue
-                            _svc_res = run_driver_analysis_batch(
-                                _svc_df,
-                                tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
-                                tuple(WOW_PLACE_COLS), tuple(WOW_THEMES),
-                                0.20, 0.05,
-                            )
-                            _svc_comb = {}
-                            for _r in _svc_res.values():
-                                if _r.get("status") == "ok":
-                                    for _, _row in _r["coef_df"].iterrows():
-                                        _lbl = _row["label"]
-                                        _svc_comb[_lbl] = _svc_comb.get(_lbl, 0.0) + _row["β_std"]
-                            _pos2 = sorted([(l, b) for l, b in _svc_comb.items() if b >= 1],
-                                           key=lambda x: x[1], reverse=True)
-                            _neg2 = sorted([(l, b) for l, b in _svc_comb.items() if b <= -0.25],
-                                           key=lambda x: x[1])
-                            if _pos2:
-                                _b112_pos[_dsvc] = [f"{l} ({b:+.2f})" for l, b in _pos2]
-                                for l, b in _pos2:
-                                    _b112_pos_freq[l] = _b112_pos_freq.get(l, 0) + 1
-                                    if l not in _b112_pos_detail:
-                                        _b112_pos_detail[l] = []
-                                    _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
-                                    _svcdelta = (_svc_df[WOW_PLACE_COLS[_wow_i]].mean() - _svc_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
-                                    _b112_pos_detail[l].append((_dsvc, b, _svcdelta))
-                            if _neg2:
-                                _b112_neg[_dsvc] = [f"{l} ({b:+.2f})" for l, b in _neg2]
-                                for l, b in _neg2:
-                                    _b112_neg_freq[l] = _b112_neg_freq.get(l, 0) + 1
-                                    if l not in _b112_neg_detail:
-                                        _b112_neg_detail[l] = []
-                                    _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
-                                    _svcdelta = (_svc_df[WOW_PLACE_COLS[_wow_i]].mean() - _svc_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
-                                    _b112_neg_detail[l].append((_dsvc, b, _svcdelta))
-                    # ── Shortlisted drivers (beta + delta cut-offs) ────────────
-                    def _shortlist_table_svc(detail_dict, label, is_pos):
-                        shortlist = {}
-                        for theme, entries in detail_dict.items():
-                            for unit, b, delta in entries:
-                                if abs(delta) > 0.5:
-                                    if unit not in shortlist:
-                                        shortlist[unit] = []
-                                    shortlist[unit].append((theme, b, delta))
-                        if not shortlist:
-                            st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
-                            return
-                        for unit in shortlist:
-                            shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
-                        max_rows = max(len(v) for v in shortlist.values())
-                        table = {}
-                        for unit, drivers in shortlist.items():
-                            cells = []
-                            for theme, b, delta in drivers:
-                                cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
-                            cells += [""] * (max_rows - len(cells))
-                            table[unit] = cells
-                        df_short = pd.DataFrame(table)
-                        df_short.index = [f"#{i+1}" for i in range(max_rows)]
-                        _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
-                        def _hl_cell(val):
-                            if not val:
+                    if not st.session_state.get('b112_svc_loaded'):
+                        st.info('Service-level driver analysis not computed yet — click below to load.')
+                        if st.button('▶ Load Service Analysis', type='primary', key='load_b112_svc_btn'):
+                            st.session_state['b112_svc_loaded'] = True
+                            st.rerun()
+                    else:
+                        st.caption(
+                            "For each individual service across all directorates, shows the confirmed WoW drivers "
+                            "with a combined β ≥ 1 (positive) or ≤ -0.25 (negative) across all outcome models. "
+                            "Uses default settings: correlation floor 0.20, p-value threshold 0.05, Place WoW predictors."
+                        )
+                        _b112_svc_map = []
+                        for _dir in directorates:
+                            _dir_df = filtered[filtered["Q1"] == _dir]
+                            _abbrev = _DIR_ABBREV.get(_dir, _dir[:3])
+                            for _sg in get_filter_options(_dir_df, "svc_group"):
+                                _sg_df2 = _dir_df[_dir_df["svc_group"] == _sg]
+                                for _svc in get_filter_options(_sg_df2, "svc_name"):
+                                    _svc_df = _sg_df2[_sg_df2["svc_name"] == _svc]
+                                    _display_svc = f"{_svc} ({_abbrev})"
+                                    _b112_svc_map.append((_dir, _display_svc, _svc_df))
+                        _b112_pos, _b112_neg = {}, {}
+                        _b112_pos_freq, _b112_neg_freq = {}, {}
+                        _b112_pos_detail = {}
+                        _b112_neg_detail = {}
+                        _b112_total = sum(1 for _, _, _sdf in _b112_svc_map if len(_sdf) >= 5)
+                        with st.spinner("Computing drivers across all services…"):
+                            for _dir, _dsvc, _svc_df in _b112_svc_map:
+                                if len(_svc_df) < 5:
+                                    continue
+                                _svc_res = run_driver_analysis_batch(
+                                    _svc_df,
+                                    tuple(OUTCOME_COLS), tuple(OUTCOME_LABELS),
+                                    tuple(WOW_PLACE_COLS), tuple(WOW_THEMES),
+                                    0.20, 0.05,
+                                )
+                                _svc_comb = {}
+                                for _r in _svc_res.values():
+                                    if _r.get("status") == "ok":
+                                        for _, _row in _r["coef_df"].iterrows():
+                                            _lbl = _row["label"]
+                                            _svc_comb[_lbl] = _svc_comb.get(_lbl, 0.0) + _row["β_std"]
+                                _pos2 = sorted([(l, b) for l, b in _svc_comb.items() if b >= 1],
+                                               key=lambda x: x[1], reverse=True)
+                                _neg2 = sorted([(l, b) for l, b in _svc_comb.items() if b <= -0.25],
+                                               key=lambda x: x[1])
+                                if _pos2:
+                                    _b112_pos[_dsvc] = [f"{l} ({b:+.2f})" for l, b in _pos2]
+                                    for l, b in _pos2:
+                                        _b112_pos_freq[l] = _b112_pos_freq.get(l, 0) + 1
+                                        if l not in _b112_pos_detail:
+                                            _b112_pos_detail[l] = []
+                                        _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
+                                        _svcdelta = (_svc_df[WOW_PLACE_COLS[_wow_i]].mean() - _svc_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
+                                        _b112_pos_detail[l].append((_dsvc, b, _svcdelta))
+                                if _neg2:
+                                    _b112_neg[_dsvc] = [f"{l} ({b:+.2f})" for l, b in _neg2]
+                                    for l, b in _neg2:
+                                        _b112_neg_freq[l] = _b112_neg_freq.get(l, 0) + 1
+                                        if l not in _b112_neg_detail:
+                                            _b112_neg_detail[l] = []
+                                        _wow_i = WOW_THEMES.index(l) if l in WOW_THEMES else -1
+                                        _svcdelta = (_svc_df[WOW_PLACE_COLS[_wow_i]].mean() - _svc_df[WOW_IND_COLS[_wow_i]].mean()) if _wow_i >= 0 else 0.0
+                                        _b112_neg_detail[l].append((_dsvc, b, _svcdelta))
+                        def _shortlist_table_svc(detail_dict, label, is_pos):
+                            shortlist = {}
+                            for theme, entries in detail_dict.items():
+                                for unit, b, delta in entries:
+                                    if abs(delta) > 0.5:
+                                        if unit not in shortlist:
+                                            shortlist[unit] = []
+                                        shortlist[unit].append((theme, b, delta))
+                            if not shortlist:
+                                st.info(f"No {label} drivers meet both beta and delta (>0.5) cut-offs.")
+                                return
+                            for unit in shortlist:
+                                shortlist[unit].sort(key=lambda x: x[1], reverse=is_pos)
+                            max_rows = max(len(v) for v in shortlist.values())
+                            table = {}
+                            for unit, drivers in shortlist.items():
+                                cells = []
+                                for theme, b, delta in drivers:
+                                    cells.append(f"{theme} (β={b:+.2f}, Δ={delta:+.2f})")
+                                cells += [""] * (max_rows - len(cells))
+                                table[unit] = cells
+                            df_short = pd.DataFrame(table)
+                            df_short.index = [f"#{i+1}" for i in range(max_rows)]
+                            _STANDARD = {"Recognise Contributions", "Challenge Decisions"}
+                            def _hl_cell(val):
+                                if not val:
+                                    return ""
+                                theme_name = val.split(" (β=")[0]
+                                if theme_name not in _STANDARD:
+                                    return "background-color: #FFF3CD; color: #1A2B3C"
                                 return ""
-                            theme_name = val.split(" (β=")[0]
-                            if theme_name not in _STANDARD:
-                                return "background-color: #FFF3CD; color: #1A2B3C"
-                            return ""
-                        st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
-                    st.markdown("#### Shortlisted Drivers — Services (β + Δ > 0.5)")
-                    st.caption("Positive shortlist: combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
-                    if _b112_pos_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_svc(_b112_pos_detail, "positive", True)
-                    if _b112_neg_detail:
-                        st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
-                        _shortlist_table_svc(_b112_neg_detail, "negative", False)
+                            st.dataframe(df_short.style.map(_hl_cell), use_container_width=True)
+                        st.markdown("#### Shortlisted Drivers — Services (β + Δ > 0.5)")
+                        st.caption("Positive shortlist: combined β ≥ 1 AND |Δ| > 0.5. Negative: β ≤ -0.25 AND |Δ| > 0.5.")
+                        if _b112_pos_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Positive drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_svc(_b112_pos_detail, "positive", True)
+                        if _b112_neg_detail:
+                            st.markdown('<p style="font-size:14px;font-weight:700;color:#1A2B3C;margin:8px 0 4px">Negative drivers</p>', unsafe_allow_html=True)
+                            _shortlist_table_svc(_b112_neg_detail, "negative", False)
+                        if _b112_pos:
+                            st.markdown("#### Where Each Positive Driver Appears")
+                            for _theme, _count in sorted(_b112_pos_freq.items(), key=lambda x: x[1], reverse=True):
+                                with st.expander(f"{_theme} — {_count} service{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b112_total} services analysed</p>', unsafe_allow_html=True)
+                                    for _sv, _b, _dd in sorted(_b112_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True):
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sv}</strong> '
+                                            f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Positive Drivers by Service (combined β ≥ 1)")
+                            _mp2 = max(len(v) for v in _b112_pos.values())
+                            _pos_df2 = pd.DataFrame({k: v + [""] * (_mp2 - len(v)) for k, v in _b112_pos.items()})
+                            _pos_df2.index = [f"#{i+1}" for i in range(_mp2)]
+                            st.dataframe(_pos_df2, use_container_width=True)
+                        else:
+                            st.info("No positive drivers with combined β ≥ 1 found at service level.")
 
-                    if _b112_pos:
-                        st.markdown("#### Where Each Positive Driver Appears")
-                        for _theme, _count in sorted(_b112_pos_freq.items(), key=lambda x: x[1], reverse=True):
-                            with st.expander(f"{_theme} — {_count} service{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b112_total} services analysed</p>', unsafe_allow_html=True)
-                                for _sv, _b, _dd in sorted(_b112_pos_detail.get(_theme, []), key=lambda x: x[1], reverse=True):
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sv}</strong> '
-                                        f'(β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Positive Drivers by Service (combined β ≥ 1)")
-                        _mp2 = max(len(v) for v in _b112_pos.values())
-                        _pos_df2 = pd.DataFrame({k: v + [""] * (_mp2 - len(v)) for k, v in _b112_pos.items()})
-                        _pos_df2.index = [f"#{i+1}" for i in range(_mp2)]
-                        st.dataframe(_pos_df2, use_container_width=True)
-                    else:
-                        st.info("No positive drivers with combined β ≥ 1 found at service level.")
-
-                    if _b112_neg:
-                        st.markdown("#### Where Each Negative Driver Appears")
-                        for _theme, _count in sorted(_b112_neg_freq.items(), key=lambda x: x[1], reverse=True):
-                            with st.expander(f"{_theme} — {_count} service{'s' if _count != 1 else ''}"):
-                                st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b112_total} services analysed</p>', unsafe_allow_html=True)
-                                for _sv, _b, _dd in sorted(_b112_neg_detail.get(_theme, []), key=lambda x: x[1]):
-                                    _delta_str = ""
-                                    if abs(_dd) > 0.5:
-                                        _dc = "#27AE60" if _dd > 0 else "#C0392B"
-                                        _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
-                                    st.markdown(
-                                        f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sv}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
-                                        unsafe_allow_html=True
-                                    )
-                        st.markdown("#### Top Negative Drivers by Service (combined β ≤ -0.25)")
-                        _mn2 = max(len(v) for v in _b112_neg.values())
-                        _neg_df2 = pd.DataFrame({k: v + [""] * (_mn2 - len(v)) for k, v in _b112_neg.items()})
-                        _neg_df2.index = [f"#{i+1}" for i in range(_mn2)]
-                        st.dataframe(_neg_df2, use_container_width=True)
-                    else:
-                        st.info("No negative drivers with combined β ≤ -0.25 found at service level.")
+                        if _b112_neg:
+                            st.markdown("#### Where Each Negative Driver Appears")
+                            for _theme, _count in sorted(_b112_neg_freq.items(), key=lambda x: x[1], reverse=True):
+                                with st.expander(f"{_theme} — {_count} service{'s' if _count != 1 else ''}"):
+                                    st.markdown(f'<p style="font-size:11px;color:#8FA3B1;margin-bottom:6px">{_count} of {_b112_total} services analysed</p>', unsafe_allow_html=True)
+                                    for _sv, _b, _dd in sorted(_b112_neg_detail.get(_theme, []), key=lambda x: x[1]):
+                                        _delta_str = ""
+                                        if abs(_dd) > 0.5:
+                                            _dc = "#27AE60" if _dd > 0 else "#C0392B"
+                                            _delta_str = f', <span style="color:{_dc};font-weight:600">Δ = {_dd:+.2f}</span>'
+                                        st.markdown(
+                                            f'<p style="margin:2px 0;font-size:13px;color:#1A2B3C">· <strong style="color:#1A2B3C">{_sv}</strong> (β = <span style="color:#2980B9;font-weight:600">{_b:+.2f}</span>{_delta_str})</p>',
+                                            unsafe_allow_html=True
+                                        )
+                            st.markdown("#### Top Negative Drivers by Service (combined β ≤ -0.25)")
+                            _mn2 = max(len(v) for v in _b112_neg.values())
+                            _neg_df2 = pd.DataFrame({k: v + [""] * (_mn2 - len(v)) for k, v in _b112_neg.items()})
+                            _neg_df2.index = [f"#{i+1}" for i in range(_mn2)]
+                            st.dataframe(_neg_df2, use_container_width=True)
+                        else:
+                            st.info("No negative drivers with combined β ≤ -0.25 found at service level.")
 
                 with b11_main_tab:
                     st.caption(
