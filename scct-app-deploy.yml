@@ -9,7 +9,7 @@ pool:
 variables:
   azureServiceConnection: 'AZDGNP-SERCON-SCCT'
   appServiceName: 'AZDGNP-SCCTWA01'
-  startupCommand: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0 --server.enableXsrfProtection false'
+  startupCommand: 'python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0'
 
 stages:
 - stage: Build
