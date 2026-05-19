@@ -453,13 +453,16 @@ def apply_filters(df: pd.DataFrame, selections: dict) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def spearman_matrix(df: pd.DataFrame, x_cols: list, y_cols: list) -> pd.DataFrame:
+    from scipy.stats import spearmanr
     all_cols = list(dict.fromkeys(x_cols + y_cols))
-    # Rank once across all columns, then compute Pearson on ranks.
-    # Mathematically identical to Spearman but avoids pandas calling scipy pairwise,
-    # which re-ranks every column for every pair — O(p² × n log n) vs O(p × n log n).
-    ranked = df[all_cols].astype(float).rank()
-    corr = ranked.corr()
-    return corr.loc[x_cols, y_cols]
+    data = df[all_cols].astype(float).to_numpy()
+    # scipy.stats.spearmanr on a 2D array computes the full matrix in one
+    # vectorised C call — much faster than pandas' pairwise Python loop.
+    result = spearmanr(data, nan_policy="omit")
+    n = len(all_cols)
+    corr_arr = result.statistic if n > 2 else np.array([[1.0, float(result.statistic)], [float(result.statistic), 1.0]])
+    corr_df = pd.DataFrame(corr_arr, index=all_cols, columns=all_cols)
+    return corr_df.loc[x_cols, y_cols]
 
 
 def make_writable_matrix(mat: pd.DataFrame) -> pd.DataFrame:
