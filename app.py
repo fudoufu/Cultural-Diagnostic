@@ -4646,12 +4646,19 @@ with _timed("Section D render"), sec_d:
 if st.session_state.get("_show_timing") and _timings:
     with st.sidebar:
         st.markdown("---")
-        st.markdown("**⏱ Render timing (this run)**")
+        st.markdown(
+            '<p style="color:#FFFFFF;font-weight:700;margin-bottom:4px">⏱ Render timing (this run)</p>',
+            unsafe_allow_html=True,
+        )
         for _lbl, _elapsed in sorted(_timings, key=lambda x: -x[1]):
             if _elapsed >= 5:
-                _colour = "🔴"
+                _dot = "🔴"
             elif _elapsed >= 1:
-                _colour = "🟠"
+                _dot = "🟠"
             else:
-                _colour = "🟢"
-            st.caption(f"{_colour} {_lbl}: **{_elapsed:.2f}s**")
+                _dot = "🟢"
+            st.markdown(
+                f'<p style="color:#FFFFFF;font-size:12px;margin:2px 0">'
+                f'{_dot} {_lbl}: <b>{_elapsed:.2f}s</b></p>',
+                unsafe_allow_html=True,
+            )
