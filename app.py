@@ -3912,7 +3912,7 @@ with _timed("Section C render"), sec_c:
                 _c23_dual_chart(
                     _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                     _c2_comp, "Avg Sickness Days", " days", "#E07070",
-                    [-0.2, 4.5], [0, 10],
+                    [0, 4.5], [0, 10],
                     "c2_1_bar",
                     "Blue = average EE score (left axis, higher = more positive). Red = average sickness absence days (right axis).",
                 )
@@ -3931,7 +3931,7 @@ with _timed("Section C render"), sec_c:
                         [_wv[i] for i in _wsort],
                         f"{_wt} (Place) — Avg Score",
                         [_c2_comp[i] for i in _wsort], "Avg Sickness Days", " days", "#E07070",
-                        [-0.2, 4.5], [0, 10],
+                        [0, 4.5], [0, 10],
                         f"c2_2_bar_{_wi}",
                         f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
                         x_labels=[_c23_labels[i] for i in _wsort],
@@ -3959,7 +3959,7 @@ with _timed("Section C render"), sec_c:
                 _c23_dual_chart(
                     _c23_ee_scores, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                     _c3_comp, "Turnover (%)", "%", "#E07070",
-                    [-0.2, 4.5], [0, 3],
+                    [0, 4.5], [0, 3],
                     "c3_1_bar",
                     "Blue = average EE score (left axis, higher = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
                 )
@@ -3978,7 +3978,7 @@ with _timed("Section C render"), sec_c:
                         [_wv[i] for i in _wsort],
                         f"{_wt} (Place) — Avg Score",
                         [_c3_comp[i] for i in _wsort], "Turnover (%)", "%", "#E07070",
-                        [-0.2, 4.5], [0, 3],
+                        [0, 4.5], [0, 3],
                         f"c3_2_bar_{_wi}",
                         f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
                         x_labels=[_c23_labels[i] for i in _wsort],
