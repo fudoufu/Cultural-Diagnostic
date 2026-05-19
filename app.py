@@ -453,9 +453,12 @@ def apply_filters(df: pd.DataFrame, selections: dict) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def spearman_matrix(df: pd.DataFrame, x_cols: list, y_cols: list) -> pd.DataFrame:
-    """Rectangular Spearman correlation matrix (pairwise complete obs)."""
     all_cols = list(dict.fromkeys(x_cols + y_cols))
-    corr = df[all_cols].astype(float).corr(method="spearman")
+    # Rank once across all columns, then compute Pearson on ranks.
+    # Mathematically identical to Spearman but avoids pandas calling scipy pairwise,
+    # which re-ranks every column for every pair — O(p² × n log n) vs O(p × n log n).
+    ranked = df[all_cols].astype(float).rank()
+    corr = ranked.corr()
     return corr.loc[x_cols, y_cols]
 
 
