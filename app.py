@@ -1,5 +1,7 @@
 import io
 import re
+import time as _time
+from contextlib import contextmanager as _ctxmgr
 from typing import Optional
 import streamlit as st
 import pandas as pd
@@ -10,6 +12,17 @@ from factor_analyzer import FactorAnalyzer
 import semopy
 
 warnings.filterwarnings("ignore")
+
+# ── Performance timing helpers ────────────────────────────────────────────────────
+_timings: list = []
+
+@_ctxmgr
+def _timed(label: str):
+    t = _time.perf_counter()
+    yield
+    elapsed = _time.perf_counter() - t
+    if st.session_state.get("_show_timing"):
+        _timings.append((label, elapsed))
 
 # ── Page config ───────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Cultural Diagnostic", layout="wide", initial_sidebar_state="expanded")
@@ -192,9 +205,13 @@ OUTCOME_LABELS = [
 ]
 
 LIKERT_MAP = {
-    "Strongly agree": 5, "Agree": 4, "Neither agree nor disagree": 3,
-    "Disagree": 2, "Strongly disagree": 1,
+    "Strongly agree": 4, "Agree": 3, "Neither agree nor disagree": 2,
+    "Disagree": 1, "Strongly disagree": 0,
 }
+
+LOS_ORDER = [
+    "Less than 1 year", "1-3 years", "4-10 years", "11-20 years", "More than 20 years",
+]
 
 EDI_FILTERS = {
     "Q8":  "Length of service",
@@ -408,15 +425,18 @@ def load_data(file_bytes: bytes) -> pd.DataFrame:
     for col in [f"Q{i}" for i in range(11, 69)]:
         df[col] = df[col].map(LIKERT_MAP)
 
-    # Convert Q69 (1–10) → 1–5
+    # Convert Q69 (1–10) → 0–4.5; keep raw 1–10 values in Q69_raw
     def parse_q69(val):
         if pd.isna(val):
             return np.nan
         try:
-            return float(str(val).split()[0]) / 2
+            return float(str(val).split()[0]) / 2 - 0.5
         except (ValueError, IndexError):
             return np.nan
 
+    df["Q69_raw"] = df["Q69"].apply(
+        lambda v: float(str(v).split()[0]) if not pd.isna(v) else np.nan
+    )
     df["Q69"] = df["Q69"].apply(parse_q69)
 
     return df
@@ -614,7 +634,7 @@ def make_outcome_bar_chart(df: pd.DataFrame, overall_df: pd.DataFrame = None,
         xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
         yaxis=dict(
             title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
-            range=[0, 5.5],
+            range=[-0.2, 4.5],
             tickfont=dict(size=11, color="#1A2B3C"),
             gridcolor="#E8EEF2",
         ),
@@ -874,13 +894,14 @@ def run_sem(fit_df: pd.DataFrame, wow_cols: tuple, factor_map_items: tuple):
     model_desc = "\n".join(meas_lines + struct_lines)
 
     try:
-        model = semopy.Model(model_desc)
-        model.fit(fit_df)
-        results = model.inspect(mode="list")
-        try:
-            fit_stats = semopy.calc_stats(model)
-        except Exception:
-            fit_stats = None
+        with _timed("SEM model fit"):
+            model = semopy.Model(model_desc)
+            model.fit(fit_df)
+            results = model.inspect(mode="list")
+            try:
+                fit_stats = semopy.calc_stats(model)
+            except Exception:
+                fit_stats = None
         return results, fit_stats, None, model_desc
     except Exception as e:
         return None, None, str(e), model_desc
@@ -1176,6 +1197,8 @@ with st.sidebar:
     )
     uploaded = st.file_uploader("Upload survey export (.xlsx)", type=["xlsx"])
     st.markdown("---")
+    st.checkbox("Show performance timing", key="_show_timing", value=False)
+    st.markdown("---")
     st.markdown("**EDI Filters**")
     filter_selections: dict = {}
 
@@ -1196,7 +1219,8 @@ if uploaded is None:
     st.stop()
 
 # ── Load & process data ───────────────────────────────────────────────────────────
-df = load_data(uploaded.read())
+with _timed("load_data"):
+    df = load_data(uploaded.read())
 
 # Build EDI filter controls in sidebar
 with st.sidebar:
@@ -1233,7 +1257,7 @@ with sec_a:
     corr_group, desc_group = st.tabs(["A1: Drivers Analysis", "A2: Descriptive Analysis"])
 
     # ── Correlation Analysis group ────────────────────────
-    with corr_group:
+    with _timed("A — corr_group render"), corr_group:
         # ── ODA tabs at the top level ─────────────────────────
         oda_outcomes_tab, oda_lf_tab, heatmaps_tab = st.tabs([
             "A1.1: Individual Outcomes",
@@ -1662,7 +1686,8 @@ with sec_a:
                     )
 
                 # ── Factor preview + WoW drivers ──────────────────
-                _lf_loadings, _ = run_efa(filtered[OUTCOME_COLS], lf_n_factors)
+                with _timed(f"A — run_efa ({lf_n_factors} factors)"):
+                    _lf_loadings, _ = run_efa(filtered[OUTCOME_COLS], lf_n_factors)
                 _lf_loadings.index = OUTCOME_LABELS
                 _lf_cols = [f"LV{i+1}" for i in range(lf_n_factors)]
                 _lf_max = _lf_loadings.abs().max(axis=1)
@@ -2006,7 +2031,7 @@ with sec_a:
                                     use_container_width=True, key="a3")
 
         # ── Descriptive Analysis group ────────────────────────
-        with desc_group:
+        with _timed("A — desc_group render"), desc_group:
             a4, a5 = st.tabs([
                 "A2.1: Ways of Working",
                 "A2.2: Employee Experience",
@@ -2060,7 +2085,7 @@ with sec_a:
                     xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                     yaxis=dict(
                         title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
-                        range=[0, 5.5],
+                        range=[-0.2, 4.5],
                         tickfont=dict(size=11, color="#1A2B3C"),
                         gridcolor="#E8EEF2",
                     ),
@@ -2119,7 +2144,7 @@ with sec_a:
                     xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                     yaxis=dict(
                         title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
-                        range=[0, 5.5],
+                        range=[-0.2, 4.5],
                         tickfont=dict(size=11, color="#1A2B3C"),
                         gridcolor="#E8EEF2",
                     ),
@@ -2145,7 +2170,7 @@ with sec_a:
         b_corr_group, b_desc_group = st.tabs(["B1: Drivers Analysis", "B2: Descriptive Analysis"])
 
         # ── Correlation Analysis group ────────────────────────
-        with b_corr_group:
+        with _timed("B — b_corr_group render"), b_corr_group:
             # ── ODA tabs at the top level ─────────────────────────
             oda_outcomes_tab, oda_lf_tab, heatmaps_tab = st.tabs([
                 "B1.1: Individual Outcomes",
@@ -3080,7 +3105,8 @@ with sec_a:
                         )
 
                     # ── Factor preview + WoW drivers ──────────────────
-                    _lf_loadings, _ = run_efa(dir_df[OUTCOME_COLS], lf_n_factors)
+                    with _timed(f"B — run_efa ({lf_n_factors} factors)"):
+                        _lf_loadings, _ = run_efa(dir_df[OUTCOME_COLS], lf_n_factors)
                     _lf_loadings.index = OUTCOME_LABELS
                     _lf_cols = [f"LV{i+1}" for i in range(lf_n_factors)]
                     _lf_max = _lf_loadings.abs().max(axis=1)
@@ -3432,7 +3458,7 @@ with sec_a:
                                 use_container_width=True, key="bh3")
 
     # ── Descriptive Analysis group ────────────────────────
-    with b_desc_group:
+    with _timed("B — b_desc_group render"), b_desc_group:
         b4, b5 = st.tabs([
             "B2.1: Ways of Working",
             "B2.2: Sentiment Outcomes",
@@ -3484,7 +3510,7 @@ with sec_a:
                         xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                         yaxis=dict(
                             title=dict(text="Average Score", font=dict(color="#1A2B3C", size=12)),
-                            range=[0, 5.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                            range=[-0.2, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
                         ),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                                     font=dict(color="#1A2B3C", size=12)),
@@ -3511,7 +3537,7 @@ with sec_a:
                             key="b5_bar")
 
 
-with sec_c:
+with _timed("Section C render"), sec_c:
     c1, c2, c3, c4, c5 = st.tabs([
         "C1: Mandatory Training",
         "C2: Sickness",
@@ -3633,7 +3659,7 @@ with sec_c:
                 xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
                 yaxis=dict(
                     title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
                 ),
                 yaxis2=dict(
                     title=dict(text="Training Completion (%)", font=dict(color="#C0392B", size=10)),
@@ -3652,9 +3678,9 @@ with sec_c:
             _c1_ee_scores = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c1_rows]
             _c1_dual_chart(
                 _c1_ee_scores,
-                "Avg EE Score (1=Agree → 5=Disagree)",
+                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 "c1_1_bar",
-                "Blue bars = average employee experience score across all 15 outcome questions (left axis, lower = more positive). Red bars = mandatory training completion rate (right axis).",
+                "Blue bars = average employee experience score across all 15 outcome questions (left axis, higher = more positive). Red bars = mandatory training completion rate (right axis).",
             )
 
         with c1_2:
@@ -3770,11 +3796,11 @@ with sec_c:
             st.markdown("#### Employee Experience vs Sickness Absence — by Service")
             _c2_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
             _c23_dual_chart(
-                _c2_ee, "Avg EE Score (1=Agree → 5=Disagree)",
+                _c2_ee, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 _c2_comp, "Avg Sickness Days", " days", "#E07070",
-                [0, 6.5], [0, 10],
+                [-0.2, 4.5], [0, 10],
                 "c2_1_bar",
-                "Blue = average EE score (left axis, lower = more positive). Red = average sickness absence days (right axis).",
+                "Blue = average EE score (left axis, higher = more positive). Red = average sickness absence days (right axis).",
             )
 
         with c2_2:
@@ -3791,7 +3817,7 @@ with sec_c:
                     [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
                     [_c2_comp[i] for i in _wsort], "Avg Sickness Days", " days", "#E07070",
-                    [0, 6.5], [0, 10],
+                    [-0.2, 4.5], [0, 10],
                     f"c2_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = average sickness absence days.",
                     x_labels=[_c23_labels[i] for i in _wsort],
@@ -3819,11 +3845,11 @@ with sec_c:
             st.markdown("#### Employee Experience vs Turnover — by Service")
             _c3_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c23_rows]
             _c23_dual_chart(
-                _c3_ee, "Avg EE Score (1=Agree → 5=Disagree)",
+                _c3_ee, "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 _c3_comp, "Turnover (%)", "%", "#E07070",
-                [0, 6.5], [0, 3],
+                [-0.2, 4.5], [0, 3],
                 "c3_1_bar",
-                "Blue = average EE score (left axis, lower = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
+                "Blue = average EE score (left axis, higher = more positive). Red = monthly turnover rate (right axis). No bar shown where data unavailable.",
             )
 
         with c3_2:
@@ -3840,7 +3866,7 @@ with sec_c:
                     [_wv[i] for i in _wsort],
                     f"{_wt} (Place) — Avg Score",
                     [_c3_comp[i] for i in _wsort], "Turnover (%)", "%", "#E07070",
-                    [0, 6.5], [0, 3],
+                    [-0.2, 4.5], [0, 3],
                     f"c3_2_bar_{_wi}",
                     f"Blue = average score for '{_wt}' (Place). Red = monthly turnover rate.",
                     x_labels=[_c23_labels[i] for i in _wsort],
@@ -3913,7 +3939,7 @@ with sec_c:
                 xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
                 yaxis=dict(
                     title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
                 ),
                 yaxis2=dict(
                     title=dict(text="No. of Procurement Breaches", font=dict(color="#C0392B", size=10)),
@@ -3932,9 +3958,9 @@ with sec_c:
             _c4_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c4_rows]
             _c4_dual_chart(
                 _c4_ee,
-                "Avg EE Score (1=Agree → 5=Disagree)",
+                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 "c4_1_bar",
-                "Blue = average EE score (left axis, lower = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
+                "Blue = average EE score (left axis, higher = more positive). Red = procurement value (right axis). Note: 'Strategic Asset Management' excluded — no survey respondents found.",
             )
 
         with c4_2:
@@ -4030,7 +4056,7 @@ with sec_c:
                 xaxis=dict(tickangle=-45, tickfont=dict(size=9, color="#1A2B3C")),
                 yaxis=dict(
                     title=dict(text=y_title, font=dict(color=PRIMARY, size=10)),
-                    range=[0, 6.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
+                    range=[-0.2, 4.5], tickfont=dict(size=10, color=PRIMARY), gridcolor="#E8EEF2",
                 ),
                 yaxis2=dict(
                     title=dict(text="Survey Completion (%)", font=dict(color="#C0392B", size=10)),
@@ -4049,9 +4075,9 @@ with sec_c:
             _c5_ee = [sub[OUTCOME_COLS].mean(axis=1).mean() for _, sub in _c5_rows]
             _c5_dual_chart(
                 _c5_ee,
-                "Avg EE Score (1=Agree → 5=Disagree)",
+                "Avg EE Score (0 = Strongly Disagree → 4 = Strongly Agree)",
                 "c5_1_bar",
-                "Blue = average EE score (left axis, lower = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
+                "Blue = average EE score (left axis, higher = more positive). Red = survey completion rate (right axis). Note: 'Commercial and Investment' excluded — no survey respondents. CEO Office & Directors shows >100% as headcount denominator may be understated.",
             )
 
         with c5_2:
@@ -4077,7 +4103,7 @@ with sec_c:
 # ═══════════════════════════════════════════════════════════════════════════════════
 # SECTION D
 # ═══════════════════════════════════════════════════════════════════════════════════
-with sec_d:
+with _timed("Section D render"), sec_d:
     d1, = st.tabs(["D1: Descriptive Analysis"])
 
     with d1:
@@ -4110,7 +4136,7 @@ with sec_d:
                 xaxis=dict(tickangle=-45, tickfont=dict(size=10, color="#1A2B3C")),
                 yaxis=dict(
                     title=dict(text=y_title, font=dict(color="#1A2B3C", size=11)),
-                    range=[0, 5.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
+                    range=[-0.2, 4.5], tickfont=dict(size=11, color="#1A2B3C"), gridcolor="#E8EEF2",
                 ),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02,
                             xanchor="right", x=1, font=dict(color="#1A2B3C", size=12)),
@@ -4123,7 +4149,7 @@ with sec_d:
         _n_filt  = len(filtered.dropna(subset=WOW_PLACE_COLS, how="all"))
         _n_out_all  = len(df.dropna(subset=OUTCOME_COLS, how="all"))
         _n_out_filt = len(filtered.dropna(subset=OUTCOME_COLS, how="all"))
-        _y_title = "Average Score (1 = Strongly Agree, 5 = Strongly Disagree)"
+        _y_title = "Average Score (0 = Strongly Disagree, 4 = Strongly Agree)"
 
         _fig_place = _edi_bar_chart(
             WOW_THEMES,
@@ -4144,117 +4170,488 @@ with sec_d:
             _n_out_all, _n_out_filt, _y_title, "d1_2_fig"
         )
 
-        # ── Report generator ─────────────────────────────────────────────
-        def _build_word_report():
-            import io
-            from docx import Document
-            from docx.shared import Inches, Pt, RGBColor
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
-            import plotly.io as pio
-
-            doc = Document()
-            doc.core_properties.title = "Somerset Council — EDI Views Report"
-
-            # Title
-            title = doc.add_heading("Somerset Council Cultural Diagnostic", 0)
-            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            sub = doc.add_heading("EDI Views Report — D1: Descriptive Analysis", 1)
-            sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            doc.add_paragraph()
-
-            # Active filters
-            doc.add_heading("Active EDI Filters", 2)
-            active = {k: v for k, v in filter_selections.items() if v}
-            if active:
-                for q_col, vals in active.items():
-                    label = EDI_FILTERS.get(q_col, q_col)
-                    p = doc.add_paragraph(style="List Bullet")
-                    p.add_run(f"{label}: ").bold = True
-                    p.add_run(", ".join(vals))
-            else:
-                doc.add_paragraph("No EDI filters applied — showing all respondents.")
-
-            doc.add_paragraph(f"Selected group respondents: {_n_filt:,}  |  Council total: {_n_all:,}")
-            doc.add_page_break()
-
-            def _add_chart(heading_text, fig, caption_text):
-                doc.add_heading(heading_text, 2)
-                doc.add_paragraph(caption_text)
-                img_bytes = pio.to_image(fig, format="png", width=1100, height=550, scale=2)
-                doc.add_picture(io.BytesIO(img_bytes), width=Inches(6.5))
-                doc.add_paragraph()
-
-            _add_chart(
-                "D1.1a — Ways of Working (Place): EDI Group vs Council Overall",
-                _fig_place,
-                "Each bar pair shows the average Place-level WoW score for the council overall (light blue) "
-                "and the selected EDI group (dark blue). Lower score = stronger agreement with the statement."
-            )
-            _add_chart(
-                "D1.1b — Ways of Working (Individual): EDI Group vs Council Overall",
-                _fig_ind,
-                "Each bar pair shows the average Individual-level WoW score. Lower = stronger agreement."
-            )
-            _add_chart(
-                "D1.2 — Employee Experience: EDI Group vs Council Overall",
-                _fig_outcomes,
-                "Each bar pair shows the average employee experience score for the council overall "
-                "and the selected EDI group. Lower score = stronger agreement with positive statements."
-            )
-
-            buf = io.BytesIO()
-            doc.save(buf)
-            buf.seek(0)
-            return buf.read()
-
-        # ── Report button ─────────────────────────────────────────────────
-        st.markdown("---")
-        col_btn, col_info = st.columns([1, 4])
-        with col_btn:
-            if st.button("📄 Generate Word Report", type="primary"):
-                with st.spinner("Building report…"):
-                    try:
-                        _report_bytes = _build_word_report()
-                        st.session_state["d1_report"] = _report_bytes
-                    except Exception as _e:
-                        st.error(f"Report generation failed: {_e}")
-        with col_info:
-            st.caption("Exports all three D1 charts to a Word document, labelled with the active EDI filters.")
-
-        if "d1_report" in st.session_state:
-            _active_labels = "_".join(
-                v[0].replace(" ", "")[:8]
-                for vals in filter_selections.values() if vals
-                for v in [vals]
-            ) or "all"
-            st.download_button(
-                label="⬇ Download Report (.docx)",
-                data=st.session_state["d1_report"],
-                file_name=f"EDI_Report_{_active_labels}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            )
-
-        st.markdown("---")
-
         # ── D1.1: Ways of Working ─────────────────────────────────────────
         with d1_1:
             st.caption(
-                "Compares average Ways of Working scores for the selected EDI group against the overall "
-                "council average. The council overall bar uses all respondents regardless of EDI filters."
+                "For each Way of Working theme, shows the average score for the council overall "
+                "and for every group within the selected EDI filter. Scroll down to see all 22 themes."
             )
-            d1_1_place, d1_1_ind = st.tabs(["Place (P)", "Individual (I)"])
-            with d1_1_place:
-                st.markdown("#### Ways of Working (Place) — EDI Group vs Council Overall")
-                st.plotly_chart(_fig_place, use_container_width=True, key="d1_1_place_bar")
-            with d1_1_ind:
-                st.markdown("#### Ways of Working (Individual) — EDI Group vs Council Overall")
-                st.plotly_chart(_fig_ind, use_container_width=True, key="d1_1_ind_bar")
+            st.markdown(
+                '<p style="font-size:11px;color:#5A7080;margin-bottom:8px">'
+                '<strong>Scale:</strong> 0 = Strongly disagree &nbsp;·&nbsp; 1 = Disagree &nbsp;·&nbsp; '
+                '2 = Neither agree nor disagree &nbsp;·&nbsp; 3 = Agree &nbsp;·&nbsp; 4 = Strongly agree</p>',
+                unsafe_allow_html=True,
+            )
+
+            _d1_edi_tabs = st.tabs([
+                "Length of Service", "Age", "Gender",
+                "Ethnic Group", "Sexual Orientation", "Disabled", "Carer",
+            ])
+            _d1_edi_configs = [
+                (["Q8"],   "Length of Service"),
+                (["Q72"],  "Age"),
+                (["Q73"],  "Gender"),
+                (["Q74"],  "Ethnic Group"),
+                (["Q75"],  "Sexual Orientation"),
+                (["Q76"],  "Disabled"),
+                (["Q77"],  "Carer"),
+            ]
+
+            def _make_wow_docx(edi_cols, edi_display):
+                """Build and return WoW Word report bytes for the given EDI group."""
+                import io as _io, copy as _copy
+                from docx import Document as _Document
+                from docx.shared import Inches as _Inches
+                from docx.enum.text import WD_ALIGN_PARAGRAPH as _ALIGN
+                import plotly.io as _pio
+                _x = ["Council Overall"]
+                _p_ov = [df[c].mean() for c in WOW_PLACE_COLS]
+                _i_ov = [df[c].mean() for c in WOW_IND_COLS]
+                _gp, _gi, _grps = [], [], []
+                for eq in edi_cols:
+                    _vals = sorted(
+                        (v for v in df[eq].dropna().unique()
+                         if str(v).strip() not in ("", "Not Answered")),
+                        key=lambda v: LOS_ORDER.index(v) if eq == "Q8" and v in LOS_ORDER else v,
+                    )
+                    _pfx = (EDI_FILTERS.get(eq, eq) + ": ") if len(edi_cols) > 1 else ""
+                    for val in _vals:
+                        _sub = df[df[eq] == val]
+                        _x.append(f"{_pfx}{val}")
+                        _gp.append([_sub[c].mean() for c in WOW_PLACE_COLS])
+                        _gi.append([_sub[c].mean() for c in WOW_IND_COLS])
+                        _grps.append((f"{_pfx}{val}", eq, val))
+                _tot = len(df)
+                _parts = [f"Council Overall: {_tot:,} respondents (100%)"]
+                for _bl, eq, val in _grps:
+                    _n = int((df[eq] == val).sum())
+                    _parts.append(f"{_bl}: {_n:,} ({_n / _tot:.0%})")
+                _nb = len(_x)
+                _pc = ["#8DC0D4"] + [PRIMARY] * (_nb - 1)
+                _ic = ["#F0B0B0"] + ["#E07070"] * (_nb - 1)
+                _doc = _Document()
+                _doc.core_properties.title = f"Ways of Working — {edi_display}"
+                _h = _doc.add_heading(f"Ways of Working — {edi_display}", 0)
+                _h.alignment = _ALIGN.CENTER
+                _sh = _doc.add_paragraph("Somerset Council Cultural Diagnostic — D1.1")
+                _sh.alignment = _ALIGN.CENTER
+                _doc.add_paragraph()
+                _doc.add_paragraph(
+                    "Scale: 0 = Strongly disagree · 1 = Disagree · "
+                    "2 = Neither agree nor disagree · 3 = Agree · 4 = Strongly agree"
+                )
+                _doc.add_paragraph()
+                _doc.add_heading("Sample Breakdown", 2)
+                for _sp in _parts:
+                    _doc.add_paragraph(_sp, style="List Bullet")
+                _doc.add_page_break()
+                for _wi, _theme in enumerate(WOW_THEMES):
+                    _py = [_p_ov[_wi]] + [g[_wi] for g in _gp]
+                    _iy = [_i_ov[_wi]] + [g[_wi] for g in _gi]
+                    _doc.add_heading(_theme, 2)
+                    _ps = WOW_PLACE_STATEMENTS.get(_theme, "")
+                    _is = WOW_IND_STATEMENTS.get(_theme, "")
+                    if _ps:
+                        _doc.add_paragraph().add_run(f"Place: \"{_ps}\"").italic = True
+                    if _is:
+                        _doc.add_paragraph().add_run(f"Individual: \"{_is}\"").italic = True
+                    _f = go.Figure()
+                    _f.add_trace(go.Bar(name="Place (P)", x=_x, y=_py, marker_color=_pc,
+                                        text=[f"{v:.2f}" for v in _py], textposition="outside",
+                                        textfont=dict(size=12, color="#1A2B3C"),
+                                        hovertemplate="<b>%{x}</b><br>Place: %{y:.2f}<extra></extra>"))
+                    _f.add_trace(go.Bar(name="Individual (I)", x=_x, y=_iy, marker_color=_ic,
+                                        text=[f"{v:.2f}" for v in _iy], textposition="outside",
+                                        textfont=dict(size=12, color="#1A2B3C"),
+                                        hovertemplate="<b>%{x}</b><br>Individual: %{y:.2f}<extra></extra>"))
+                    _f.update_layout(
+                        barmode="group",
+                        title=dict(text=_theme, font=dict(color="#0F4C6B", size=18)),
+                        font=dict(family="Inter", color="#1A2B3C", size=14),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=100, r=30, t=80, b=160),
+                        xaxis=dict(tickangle=-35, tickfont=dict(size=13, color="#1A2B3C")),
+                        yaxis=dict(range=[-0.2, 4.5],
+                                   title=dict(text="Avg Score", font=dict(color="#1A2B3C", size=13)),
+                                   tickfont=dict(size=13, color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                    xanchor="right", x=1, font=dict(color="#1A2B3C", size=13)),
+                        height=520,
+                    )
+                    _img = _pio.to_image(_f, format="png", width=1200, height=520, scale=2)
+                    _doc.add_picture(_io.BytesIO(_img), width=_Inches(6.5))
+                    _doc.add_paragraph()
+                _buf = _io.BytesIO()
+                _doc.save(_buf)
+                return _buf.getvalue()
+
+            def _wow_edi_charts(edi_cols, edi_display, key_prefix):
+                """Render 22 bar charts (one per WoW theme) with per-tab report download."""
+                _x_labels = ["Council Overall"]
+                _p_overall = [df[c].mean() for c in WOW_PLACE_COLS]
+                _i_overall = [df[c].mean() for c in WOW_IND_COLS]
+                _group_p, _group_i, _groups = [], [], []
+                for eq in edi_cols:
+                    _eq_vals = sorted(
+                        (v for v in df[eq].dropna().unique()
+                         if str(v).strip() not in ("", "Not Answered")),
+                        key=lambda v: LOS_ORDER.index(v) if eq == "Q8" and v in LOS_ORDER else v,
+                    )
+                    _prefix = (EDI_FILTERS.get(eq, eq) + ": ") if len(edi_cols) > 1 else ""
+                    for val in _eq_vals:
+                        _sub = df[df[eq] == val]
+                        _x_labels.append(f"{_prefix}{val}")
+                        _group_p.append([_sub[c].mean() for c in WOW_PLACE_COLS])
+                        _group_i.append([_sub[c].mean() for c in WOW_IND_COLS])
+                        _groups.append((f"{_prefix}{val}", eq, val))
+                _total_resp = len(df)
+                _summary_parts = [f"Council Overall: {_total_resp:,} respondents (100%)"]
+                for _bar_lbl, eq, val in _groups:
+                    _n = int((df[eq] == val).sum())
+                    _pct = _n / _total_resp
+                    _summary_parts.append(f"{_bar_lbl}: {_n:,} ({_pct:.0%})")
+                _n_bars = len(_x_labels)
+                _p_colors = ["#8DC0D4"] + [PRIMARY] * (_n_bars - 1)
+                _i_colors = ["#F0B0B0"] + ["#E07070"] * (_n_bars - 1)
+                _theme_figs = []
+                for _wi, _theme in enumerate(WOW_THEMES):
+                    _p_y = [_p_overall[_wi]] + [gp[_wi] for gp in _group_p]
+                    _i_y = [_i_overall[_wi]] + [gi[_wi] for gi in _group_i]
+                    _fig_w = go.Figure()
+                    _fig_w.add_trace(go.Bar(
+                        name="Place (P)", x=_x_labels, y=_p_y,
+                        marker_color=_p_colors,
+                        text=[f"{v:.2f}" for v in _p_y], textposition="outside",
+                        textfont=dict(size=8, color="#1A2B3C"),
+                        hovertemplate="<b>%{x}</b><br>Place: %{y:.2f}<extra></extra>",
+                    ))
+                    _fig_w.add_trace(go.Bar(
+                        name="Individual (I)", x=_x_labels, y=_i_y,
+                        marker_color=_i_colors,
+                        text=[f"{v:.2f}" for v in _i_y], textposition="outside",
+                        textfont=dict(size=8, color="#1A2B3C"),
+                        hovertemplate="<b>%{x}</b><br>Individual: %{y:.2f}<extra></extra>",
+                    ))
+                    _fig_w.update_layout(
+                        barmode="group",
+                        title=dict(text=_theme, font=dict(color="#0F4C6B", size=14)),
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=40, b=120),
+                        xaxis=dict(tickangle=-35, tickfont=dict(size=10, color="#1A2B3C")),
+                        yaxis=dict(range=[-0.2, 4.5],
+                                   title=dict(text="Avg Score", font=dict(color="#1A2B3C", size=10)),
+                                   tickfont=dict(size=10, color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                    xanchor="right", x=1, font=dict(color="#1A2B3C", size=11)),
+                        height=420,
+                    )
+                    _theme_figs.append((_theme, _fig_w))
+                # ── Report download button ───────────────────────────────
+                _fname = f"WoW_{edi_display.replace(' ', '')}.docx"
+                _rpt_key = f"{key_prefix}_rpt"
+                _mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                if _rpt_key not in st.session_state:
+                    with st.spinner("Preparing report…"):
+                        st.session_state[_rpt_key] = _make_wow_docx(edi_cols, edi_display)
+                st.download_button(
+                    "📄 Download Report (.docx)",
+                    data=st.session_state[_rpt_key],
+                    file_name=_fname,
+                    mime=_mime,
+                    key=f"{key_prefix}_dl",
+                )
+                # ── Summary + charts ─────────────────────────────────────
+                st.markdown(
+                    '<p style="font-size:12px;color:#5A7080;margin-bottom:12px">' +
+                    " &nbsp;|&nbsp; ".join(_summary_parts) + "</p>",
+                    unsafe_allow_html=True
+                )
+                for _wi, (_theme, _fig_w) in enumerate(_theme_figs):
+                    _p_stmt = WOW_PLACE_STATEMENTS.get(_theme, "")
+                    _i_stmt = WOW_IND_STATEMENTS.get(_theme, "")
+                    if _p_stmt:
+                        st.markdown(
+                            f'<p style="font-size:11px;color:#5A7080;font-style:italic;margin-bottom:1px">'
+                            f'Place: "{_p_stmt}"</p>'
+                            f'<p style="font-size:11px;color:#5A7080;font-style:italic;margin-bottom:4px">'
+                            f'Individual: "{_i_stmt}"</p>',
+                            unsafe_allow_html=True
+                        )
+                    st.plotly_chart(_fig_w, use_container_width=True, key=f"{key_prefix}_{_wi}")
+                    st.markdown("---")
+
+            for (_edi_tab, (_edi_cols, _edi_name)) in zip(_d1_edi_tabs, _d1_edi_configs):
+                with _edi_tab:
+                    st.markdown(f"#### Ways of Working — by {_edi_name}")
+                    _wow_edi_charts(_edi_cols, _edi_name,
+                                    f"d11_{_edi_name.replace(' ','_')}")
 
         # ── D1.2: Sentiment Outcomes ──────────────────────────────────────
         with d1_2:
             st.caption(
-                "Compares average employee experience scores for the selected EDI group against the "
-                "overall council average."
+                "For each employee experience theme, shows the average score for the council overall "
+                "and for every group within the selected EDI filter. Scroll down to see all 15 themes."
             )
-            st.markdown("#### Employee Experience — EDI Group vs Council Overall")
-            st.plotly_chart(_fig_outcomes, use_container_width=True, key="d1_2_bar")
+            st.markdown(
+                '<p style="font-size:11px;color:#5A7080;margin-bottom:8px">'
+                '<strong>Scale:</strong> 0 = Strongly disagree &nbsp;·&nbsp; 1 = Disagree &nbsp;·&nbsp; '
+                '2 = Neither agree nor disagree &nbsp;·&nbsp; 3 = Agree &nbsp;·&nbsp; 4 = Strongly agree</p>',
+                unsafe_allow_html=True,
+            )
+
+            _d12_edi_tabs = st.tabs([
+                "Length of Service", "Age", "Gender",
+                "Ethnic Group", "Sexual Orientation", "Disabled", "Carer",
+            ])
+            _d12_edi_configs = [
+                (["Q8"],   "Length of Service"),
+                (["Q72"],  "Age"),
+                (["Q73"],  "Gender"),
+                (["Q74"],  "Ethnic Group"),
+                (["Q75"],  "Sexual Orientation"),
+                (["Q76"],  "Disabled"),
+                (["Q77"],  "Carer"),
+            ]
+
+            def _make_empex_docx(edi_cols, edi_display):
+                """Build and return Employee Experience Word report bytes for the given EDI group."""
+                import io as _io, copy as _copy
+                from docx import Document as _Document
+                from docx.shared import Inches as _Inches
+                from docx.enum.text import WD_ALIGN_PARAGRAPH as _ALIGN
+                import plotly.io as _pio
+                _x = ["Council Overall"]
+                _o_ov = [df[c].mean() for c in OUTCOME_COLS]
+                _go, _grps = [], []
+                for eq in edi_cols:
+                    _vals = sorted(
+                        (v for v in df[eq].dropna().unique()
+                         if str(v).strip() not in ("", "Not Answered")),
+                        key=lambda v: LOS_ORDER.index(v) if eq == "Q8" and v in LOS_ORDER else v,
+                    )
+                    _pfx = (EDI_FILTERS.get(eq, eq) + ": ") if len(edi_cols) > 1 else ""
+                    for val in _vals:
+                        _sub = df[df[eq] == val]
+                        _x.append(f"{_pfx}{val}")
+                        _go.append([_sub[c].mean() for c in OUTCOME_COLS])
+                        _grps.append((f"{_pfx}{val}", eq, val))
+                _tot = len(df)
+                _parts = [f"Council Overall: {_tot:,} respondents (100%)"]
+                for _bl, eq, val in _grps:
+                    _n = int((df[eq] == val).sum())
+                    _parts.append(f"{_bl}: {_n:,} ({_n / _tot:.0%})")
+                _oc = ["#8DC0D4"] + [PRIMARY] * (len(_x) - 1)
+                _doc = _Document()
+                _doc.core_properties.title = f"Employee Experience — {edi_display}"
+                _h = _doc.add_heading(f"Employee Experience — {edi_display}", 0)
+                _h.alignment = _ALIGN.CENTER
+                _sh = _doc.add_paragraph("Somerset Council Cultural Diagnostic — D1.2")
+                _sh.alignment = _ALIGN.CENTER
+                _doc.add_paragraph()
+                _doc.add_paragraph(
+                    "Scale: 0 = Strongly disagree · 1 = Disagree · "
+                    "2 = Neither agree nor disagree · 3 = Agree · 4 = Strongly agree"
+                )
+                _doc.add_paragraph()
+                _doc.add_heading("Sample Breakdown", 2)
+                for _sp in _parts:
+                    _doc.add_paragraph(_sp, style="List Bullet")
+                _doc.add_page_break()
+                for _oi, _lbl in enumerate(OUTCOME_LABELS):
+                    _is_rating = (_lbl == "Employer rating")
+                    if _is_rating:
+                        _y = [df["Q69_raw"].mean()] + [
+                            df[df[eq] == val]["Q69_raw"].mean()
+                            for _, eq, val in _grps
+                        ]
+                        _y_range = [0, 11]
+                        _y_title = "Avg Rating (1–10)"
+                    else:
+                        _y = [_o_ov[_oi]] + [g[_oi] for g in _go]
+                        _y_range = [-0.2, 4.5]
+                        _y_title = "Avg Score"
+                    _doc.add_heading(_lbl, 2)
+                    _os = OUTCOME_STATEMENTS.get(_lbl, "")
+                    if _os:
+                        _doc.add_paragraph().add_run(f"\"{_os}\"").italic = True
+                    _f = go.Figure()
+                    _f.add_trace(go.Bar(name="Score", x=_x, y=_y, marker_color=_oc,
+                                        text=[f"{v:.2f}" for v in _y], textposition="outside",
+                                        textfont=dict(size=12, color="#1A2B3C"),
+                                        hovertemplate="<b>%{x}</b><br>Score: %{y:.2f}<extra></extra>"))
+                    _f.update_layout(
+                        title=dict(text=_lbl, font=dict(color="#0F4C6B", size=18)),
+                        font=dict(family="Inter", color="#1A2B3C", size=14),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=100, r=30, t=80, b=160),
+                        xaxis=dict(tickangle=-35, tickfont=dict(size=13, color="#1A2B3C")),
+                        yaxis=dict(range=_y_range,
+                                   title=dict(text=_y_title, font=dict(color="#1A2B3C", size=13)),
+                                   tickfont=dict(size=13, color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        showlegend=False, height=520,
+                    )
+                    _img = _pio.to_image(_f, format="png", width=1200, height=520, scale=2)
+                    _doc.add_picture(_io.BytesIO(_img), width=_Inches(6.5))
+                    _doc.add_paragraph()
+                _buf = _io.BytesIO()
+                _doc.save(_buf)
+                return _buf.getvalue()
+
+            def _outcome_edi_charts(edi_cols, edi_display, key_prefix):
+                """Render 15 bar charts (one per outcome theme) with per-tab report download."""
+                _x_labels = ["Council Overall"]
+                _o_overall = [df[c].mean() for c in OUTCOME_COLS]
+                _group_o, _groups = [], []
+                for eq in edi_cols:
+                    _eq_vals = sorted(
+                        (v for v in df[eq].dropna().unique()
+                         if str(v).strip() not in ("", "Not Answered")),
+                        key=lambda v: LOS_ORDER.index(v) if eq == "Q8" and v in LOS_ORDER else v,
+                    )
+                    _prefix = (EDI_FILTERS.get(eq, eq) + ": ") if len(edi_cols) > 1 else ""
+                    for val in _eq_vals:
+                        _sub = df[df[eq] == val]
+                        _x_labels.append(f"{_prefix}{val}")
+                        _group_o.append([_sub[c].mean() for c in OUTCOME_COLS])
+                        _groups.append((f"{_prefix}{val}", eq, val))
+                _total_resp = len(df)
+                _summary_parts = [f"Council Overall: {_total_resp:,} respondents (100%)"]
+                for _bar_lbl, eq, val in _groups:
+                    _n = int((df[eq] == val).sum())
+                    _pct = _n / _total_resp
+                    _summary_parts.append(f"{_bar_lbl}: {_n:,} ({_pct:.0%})")
+                _o_colors = ["#8DC0D4"] + [PRIMARY] * (len(_x_labels) - 1)
+                _outcome_figs = []
+                for _oi, _lbl in enumerate(OUTCOME_LABELS):
+                    _is_rating = (_lbl == "Employer rating")
+                    if _is_rating:
+                        _y = [df["Q69_raw"].mean()] + [
+                            df[df[eq] == val]["Q69_raw"].mean()
+                            for _, eq, val in _groups
+                        ]
+                        _y_range = [0, 11]
+                        _y_title = "Avg Rating (1–10)"
+                    else:
+                        _y = [_o_overall[_oi]] + [_gdata[_oi] for _gdata in _group_o]
+                        _y_range = [-0.2, 4.5]
+                        _y_title = "Avg Score"
+                    _fig_o = go.Figure()
+                    _fig_o.add_trace(go.Bar(
+                        name="Score", x=_x_labels, y=_y,
+                        marker_color=_o_colors,
+                        text=[f"{v:.2f}" for v in _y], textposition="outside",
+                        textfont=dict(size=8, color="#1A2B3C"),
+                        hovertemplate="<b>%{x}</b><br>Score: %{y:.2f}<extra></extra>",
+                    ))
+                    _fig_o.update_layout(
+                        title=dict(text=_lbl, font=dict(color="#0F4C6B", size=14)),
+                        font=dict(family="Inter", color="#1A2B3C"),
+                        paper_bgcolor="#F7F9FC", plot_bgcolor="#F7F9FC",
+                        margin=dict(l=10, r=10, t=40, b=120),
+                        xaxis=dict(tickangle=-35, tickfont=dict(size=10, color="#1A2B3C")),
+                        yaxis=dict(range=_y_range,
+                                   title=dict(text=_y_title, font=dict(color="#1A2B3C", size=10)),
+                                   tickfont=dict(size=10, color="#1A2B3C"), gridcolor="#E8EEF2"),
+                        showlegend=False, height=420,
+                    )
+                    _outcome_figs.append((_lbl, _fig_o))
+                # ── Report download button ───────────────────────────────
+                _fname = f"EmpEx_{edi_display.replace(' ', '')}.docx"
+                _rpt_key = f"{key_prefix}_rpt"
+                _mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                if _rpt_key not in st.session_state:
+                    with st.spinner("Preparing report…"):
+                        st.session_state[_rpt_key] = _make_empex_docx(edi_cols, edi_display)
+                st.download_button(
+                    "📄 Download Report (.docx)",
+                    data=st.session_state[_rpt_key],
+                    file_name=_fname,
+                    mime=_mime,
+                    key=f"{key_prefix}_dl",
+                )
+                # ── Summary + charts ─────────────────────────────────────
+                st.markdown(
+                    '<p style="font-size:12px;color:#5A7080;margin-bottom:12px">' +
+                    " &nbsp;|&nbsp; ".join(_summary_parts) + "</p>",
+                    unsafe_allow_html=True
+                )
+                for _oi, (_lbl, _fig_o) in enumerate(_outcome_figs):
+                    _stmt = OUTCOME_STATEMENTS.get(_lbl, "")
+                    if _stmt:
+                        st.markdown(
+                            f'<p style="font-size:11px;color:#5A7080;font-style:italic;margin-bottom:4px">'
+                            f'"{_stmt}"</p>',
+                            unsafe_allow_html=True
+                        )
+                    st.plotly_chart(_fig_o, use_container_width=True, key=f"{key_prefix}_{_oi}")
+                    st.markdown("---")
+
+            for (_edi_tab, (_edi_cols, _edi_name)) in zip(_d12_edi_tabs, _d12_edi_configs):
+                with _edi_tab:
+                    st.markdown(f"#### Employee Experience — by {_edi_name}")
+                    _outcome_edi_charts(_edi_cols, _edi_name,
+                                        f"d12_{_edi_name.replace(' ', '_')}")
+
+        # ── Download all EDI reports as zip ───────────────────────────────
+        st.markdown("---")
+        st.markdown("#### Download All EDI Reports")
+        st.caption(
+            "Downloads all Ways of Working (D1.1) and Employee Experience (D1.2) "
+            "reports as a single zip file, with one report per EDI group."
+        )
+        _zip_key = "d1_all_reports_zip"
+        _edi_zip_configs = [
+            ("Length_of_Service", ["Q8"],   "Length of Service"),
+            ("Age",               ["Q72"],  "Age"),
+            ("Gender",            ["Q73"],  "Gender"),
+            ("Ethnic_Group",      ["Q74"],  "Ethnic Group"),
+            ("Sexual_Orientation",["Q75"],  "Sexual Orientation"),
+            ("Disabled",          ["Q76"],  "Disabled"),
+            ("Carer",             ["Q77"],  "Carer"),
+        ]
+        if _zip_key not in st.session_state:
+            with st.spinner("Assembling all reports into zip…"):
+                import zipfile as _zipfile
+                import io as _zip_io
+                _zip_buf = _zip_io.BytesIO()
+                with _zipfile.ZipFile(_zip_buf, "w", _zipfile.ZIP_DEFLATED) as _zf:
+                    for _kname, _ecols, _ename in _edi_zip_configs:
+                        _wow_bytes = (
+                            st.session_state.get(f"d11_{_kname}_rpt")
+                            or _make_wow_docx(_ecols, _ename)
+                        )
+                        _zf.writestr(
+                            f"D1.1_Ways_of_Working/WoW_{_ename.replace(' ', '')}.docx",
+                            _wow_bytes,
+                        )
+                        _ex_bytes = (
+                            st.session_state.get(f"d12_{_kname}_rpt")
+                            or _make_empex_docx(_ecols, _ename)
+                        )
+                        _zf.writestr(
+                            f"D1.2_Employee_Experience/EmpEx_{_ename.replace(' ', '')}.docx",
+                            _ex_bytes,
+                        )
+                st.session_state[_zip_key] = _zip_buf.getvalue()
+        st.download_button(
+            "⬇ Download All EDI Reports (.zip)",
+            data=st.session_state[_zip_key],
+            file_name="EDI_Reports.zip",
+            mime="application/zip",
+            key="d1_zip_dl",
+        )
+
+# ── Timing display ────────────────────────────────────────────────────────────────
+if st.session_state.get("_show_timing") and _timings:
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("**⏱ Render timing (this run)**")
+        for _lbl, _elapsed in sorted(_timings, key=lambda x: -x[1]):
+            if _elapsed >= 5:
+                _colour = "🔴"
+            elif _elapsed >= 1:
+                _colour = "🟠"
+            else:
+                _colour = "🟢"
+            st.caption(f"{_colour} {_lbl}: **{_elapsed:.2f}s**")
